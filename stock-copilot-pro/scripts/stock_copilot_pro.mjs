@@ -477,7 +477,59 @@ function inferMarketFromSymbol(value) {
   return "GLOBAL";
 }
 
-function resolveRequestedSymbol(input, preferredMarket = "GLOBAL") {
+// Dynamic company name resolution via QVeris (ths_ifind.code_converter)
+const THS_CODE_CONVERTER_TOOL_ID = "ths_ifind.code_converter.v1";
+const CODE_CONVERTER_TIMEOUT_MS = 5000;
+
+async function resolveCompanyNameViaQveris(companyName) {
+  try {
+    // First, search for the code_converter tool to get search_id
+    const searchRes = await searchTools("ths_ifind 证券代码转换 code converter", 5, CODE_CONVERTER_TIMEOUT_MS);
+    const searchId = searchRes?.search_id;
+    if (!searchId) {
+      console.error("[CodeConverter] No search_id from search");
+      return null;
+    }
+    // Execute the code_converter with secname mode and fuzzy match
+    const params = {
+      mode: "secname",
+      secname: companyName,
+      isexact: "0", // fuzzy match
+    };
+    const result = await executeTool(THS_CODE_CONVERTER_TOOL_ID, searchId, params, 20480, CODE_CONVERTER_TIMEOUT_MS);
+    if (!result?.success) {
+      console.error("[CodeConverter] Execution failed:", result);
+      return null;
+    }
+    const data = result?.result?.data;
+    if (!Array.isArray(data) || data.length === 0) {
+      console.error("[CodeConverter] No results for:", companyName);
+      return null;
+    }
+    // Extract the first matched thscode
+    const firstMatch = data[0];
+    const thscodes = firstMatch?.table?.thscode;
+    if (!Array.isArray(thscodes) || thscodes.length === 0) {
+      console.error("[CodeConverter] No thscode in result for:", companyName);
+      return null;
+    }
+    // thscodes may contain multiple codes (e.g., "300750.SZ,3750.HK,CYATY.PQ")
+    // We need to extract only the first (primary) code
+    const rawCodes = thscodes[0];
+    let resolvedSymbol = rawCodes;
+    if (typeof rawCodes === "string" && rawCodes.includes(",")) {
+      // Take only the first code (typically the primary A-share code)
+      resolvedSymbol = rawCodes.split(",")[0].trim();
+    }
+    console.error(`[CodeConverter] Resolved "${companyName}" -> "${resolvedSymbol}"`);
+    return resolvedSymbol;
+  } catch (err) {
+    console.error("[CodeConverter] Error resolving company name:", err.message);
+    return null;
+  }
+}
+
+async function resolveRequestedSymbol(input, preferredMarket = "GLOBAL") {
   const original = String(input || "").trim();
   const aliasKey = normalizeAliasKey(original);
   const alias = COMPANY_SYMBOL_ALIASES[aliasKey];
@@ -499,6 +551,20 @@ function resolveRequestedSymbol(input, preferredMarket = "GLOBAL") {
       market,
       resolvedBy: "ticker-extract",
     };
+  }
+
+  // If input looks like a Chinese company name (has CJK chars, no digits), try dynamic resolution
+  if (hasCjk(original) && !/[0-9]/.test(original)) {
+    const dynamicSymbol = await resolveCompanyNameViaQveris(original);
+    if (dynamicSymbol) {
+      const market = preferredMarket !== "GLOBAL" ? preferredMarket : inferMarketFromSymbol(dynamicSymbol);
+      return {
+        original,
+        symbol: dynamicSymbol,
+        market,
+        resolvedBy: "qveris-code-converter",
+      };
+    }
   }
 
   const inferred = preferredMarket !== "GLOBAL" ? preferredMarket : inferMarketFromSymbol(original);
@@ -1804,7 +1870,7 @@ async function searchAndRankByCapability(capability, options) {
 }
 
 async function runSingleAnalysis(symbol, options) {
-  const resolvedInput = resolveRequestedSymbol(symbol, options.market);
+  const resolvedInput = await resolveRequestedSymbol(symbol, options.market);
   const effectiveMarket = resolvedInput.market;
   const candidates = normalizeSymbols(resolvedInput.symbol, effectiveMarket);
   let selectedSymbol = candidates[0];

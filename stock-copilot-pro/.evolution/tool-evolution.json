@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-02-15T11:51:28.154Z",
+  "updated_at": "2026-02-15T12:34:28.701Z",
   "tools": {
     "finnhub_io_api.stock.quote": {
       "tool_id": "finnhub_io_api.stock.quote",
@@ -8,11 +8,12 @@
       "first_seen_at": "2026-02-15T09:47:32.971Z",
       "last_success_at": "2026-02-15T09:53:26.668Z",
       "success_count": 3,
-      "fail_count": 1,
+      "fail_count": 7,
       "avg_elapsed_ms": 1354,
       "markets": [
         "CN",
-        "US"
+        "US",
+        "GLOBAL"
       ],
       "param_templates": {},
       "sample_successful_params": null,
@@ -22,10 +23,10 @@
       "tool_id": "ths_ifind.real_time_quotation.v1",
       "provider": "ths_ifind",
       "first_seen_at": "2026-02-15T09:55:37.921Z",
-      "last_success_at": "2026-02-15T11:51:09.731Z",
-      "success_count": 13,
-      "fail_count": 0,
-      "avg_elapsed_ms": 1599,
+      "last_success_at": "2026-02-15T12:32:10.977Z",
+      "success_count": 34,
+      "fail_count": 1,
+      "avg_elapsed_ms": 1344,
       "markets": [
         "CN",
         "HK"
@@ -47,13 +48,14 @@
       "tool_id": "twelvedata.quote.retrieve.v1.affbefe3",
       "provider": "twelvedata",
       "first_seen_at": "2026-02-15T09:27:04.326Z",
-      "last_success_at": "2026-02-15T11:49:20.825Z",
-      "success_count": 11,
-      "fail_count": 2,
-      "avg_elapsed_ms": 1016,
+      "last_success_at": "2026-02-15T12:34:15.127Z",
+      "success_count": 14,
+      "fail_count": 8,
+      "avg_elapsed_ms": 964,
       "markets": [
         "US",
-        "CN"
+        "CN",
+        "GLOBAL"
       ],
       "param_templates": {
         "US": {
@@ -61,7 +63,7 @@
         }
       },
       "sample_successful_params": {
-        "symbol": "AAPL"
+        "symbol": "TSLA"
       },
       "last_error": null
     },
@@ -87,12 +89,13 @@
       "first_seen_at": "2026-02-15T03:22:49.607Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 20,
+      "fail_count": 26,
       "avg_elapsed_ms": 0,
       "markets": [
         "US",
         "HK",
-        "CN"
+        "CN",
+        "GLOBAL"
       ],
       "param_templates": {},
       "sample_successful_params": null,
@@ -136,14 +139,15 @@
       "tool_id": "alphavantage.fundamentals.income_statement.retrieve.v1.7aca3c4a",
       "provider": "alphavantage",
       "first_seen_at": "2026-02-15T03:22:51.247Z",
-      "last_success_at": "2026-02-15T11:49:24.262Z",
-      "success_count": 24,
-      "fail_count": 0,
-      "avg_elapsed_ms": 938,
+      "last_success_at": "2026-02-15T12:34:18.406Z",
+      "success_count": 27,
+      "fail_count": 6,
+      "avg_elapsed_ms": 920,
       "markets": [
         "US",
         "HK",
-        "CN"
+        "CN",
+        "GLOBAL"
       ],
       "param_templates": {
         "US": {
@@ -153,7 +157,7 @@
       },
       "sample_successful_params": {
         "function": "OVERVIEW",
-        "symbol": "AAPL"
+        "symbol": "TSLA"
       },
       "last_error": null
     },
@@ -161,10 +165,10 @@
       "tool_id": "ths_ifind.company_basics.v1",
       "provider": "ths_ifind",
       "first_seen_at": "2026-02-15T09:55:40.013Z",
-      "last_success_at": "2026-02-15T11:51:13.650Z",
-      "success_count": 7,
+      "last_success_at": "2026-02-15T12:32:14.865Z",
+      "success_count": 9,
       "fail_count": 0,
-      "avg_elapsed_ms": 1127,
+      "avg_elapsed_ms": 1196,
       "markets": [
         "CN",
         "HK"
@@ -183,10 +187,10 @@
       "tool_id": "ths_ifind.history_quotation.v1",
       "provider": "ths_ifind",
       "first_seen_at": "2026-02-15T09:55:43.623Z",
-      "last_success_at": "2026-02-15T11:51:15.569Z",
-      "success_count": 13,
-      "fail_count": 0,
-      "avg_elapsed_ms": 1141,
+      "last_success_at": "2026-02-15T12:32:16.543Z",
+      "success_count": 34,
+      "fail_count": 1,
+      "avg_elapsed_ms": 1155,
       "markets": [
         "CN",
         "HK"
@@ -236,10 +240,11 @@
       "first_seen_at": "2026-02-15T03:22:52.579Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 1,
+      "fail_count": 7,
       "avg_elapsed_ms": 0,
       "markets": [
-        "US"
+        "US",
+        "GLOBAL"
       ],
       "param_templates": {},
       "sample_successful_params": null,
@@ -251,10 +256,11 @@
       "first_seen_at": "2026-02-15T03:22:53.193Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 1,
+      "fail_count": 7,
       "avg_elapsed_ms": 0,
       "markets": [
-        "US"
+        "US",
+        "GLOBAL"
       ],
       "param_templates": {},
       "sample_successful_params": null,
@@ -279,32 +285,59 @@
       "tool_id": "finnhub.news.retrieve.v1",
       "provider": "finnhub",
       "first_seen_at": "2026-02-15T09:53:39.027Z",
-      "last_success_at": "2026-02-15T09:55:44.994Z",
-      "success_count": 2,
-      "fail_count": 0,
-      "avg_elapsed_ms": 5048,
+      "last_success_at": "2026-02-15T12:33:22.566Z",
+      "success_count": 11,
+      "fail_count": 19,
+      "avg_elapsed_ms": 2261,
       "markets": [
-        "CN"
+        "CN",
+        "GLOBAL",
+        "HK"
       ],
-      "param_templates": {},
-      "sample_successful_params": null,
+      "param_templates": {
+        "CN": {
+          "category": "general"
+        },
+        "HK": {
+          "category": "general"
+        },
+        "GLOBAL": {
+          "category": "general"
+        }
+      },
+      "sample_successful_params": {
+        "category": "general"
+      },
       "last_error": null
     },
     "alphavantage.news_sentiment.query.v1.7aca3c4a": {
       "tool_id": "alphavantage.news_sentiment.query.v1.7aca3c4a",
       "provider": "alphavantage",
       "first_seen_at": "2026-02-15T03:23:02.073Z",
-      "last_success_at": null,
-      "success_count": 0,
-      "fail_count": 12,
-      "avg_elapsed_ms": 0,
+      "last_success_at": "2026-02-15T12:34:24.739Z",
+      "success_count": 3,
+      "fail_count": 18,
+      "avg_elapsed_ms": 1926,
       "markets": [
         "US",
         "HK",
-        "CN"
+        "CN",
+        "GLOBAL"
       ],
-      "param_templates": {},
-      "sample_successful_params": null,
+      "param_templates": {
+        "US": {
+          "function": "NEWS_SENTIMENT",
+          "tickers": "{caidaziTicker}",
+          "sort": "LATEST",
+          "limit": 10
+        }
+      },
+      "sample_successful_params": {
+        "function": "NEWS_SENTIMENT",
+        "tickers": "TSLA",
+        "sort": "LATEST",
+        "limit": 10
+      },
       "last_error": null
     },
     "caidazi.search.hybrid_v2.query.v1.b27f5d64": {
@@ -313,7 +346,7 @@
       "first_seen_at": "2026-02-15T10:32:26.986Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 12,
+      "fail_count": 34,
       "avg_elapsed_ms": 0,
       "markets": [
         "CN",
@@ -342,14 +375,15 @@
       "tool_id": "x_developer.2.tweets.search.recent.retrieve.v2.f424c8f9",
       "provider": "x_developer",
       "first_seen_at": "2026-02-15T03:25:29.361Z",
-      "last_success_at": "2026-02-15T11:51:24.120Z",
-      "success_count": 26,
+      "last_success_at": "2026-02-15T12:34:28.697Z",
+      "success_count": 57,
       "fail_count": 0,
-      "avg_elapsed_ms": 918,
+      "avg_elapsed_ms": 872,
       "markets": [
         "US",
         "HK",
-        "CN"
+        "CN",
+        "GLOBAL"
       ],
       "param_templates": {
         "CN": {
@@ -366,10 +400,15 @@
           "query": "(0700 OR $0700) lang:en -is:retweet",
           "max_results": 20,
           "sort_order": "relevancy"
+        },
+        "GLOBAL": {
+          "query": "(300750.SZ,3750.HK,CYATY.PQ OR $300750.SZ,3750.HK,CYATY.PQ) lang:en -is:retweet",
+          "max_results": 20,
+          "sort_order": "relevancy"
         }
       },
       "sample_successful_params": {
-        "query": "(0700 OR $0700) lang:en -is:retweet",
+        "query": "(AAPL OR $AAPL) lang:en -is:retweet",
         "max_results": 20,
         "sort_order": "relevancy"
       },
@@ -413,10 +452,10 @@
       "tool_id": "ths_ifind.financial_statements.v1",
       "provider": "ths_ifind",
       "first_seen_at": "2026-02-15T11:17:24.684Z",
-      "last_success_at": "2026-02-15T11:48:35.764Z",
-      "success_count": 6,
-      "fail_count": 5,
-      "avg_elapsed_ms": 986,
+      "last_success_at": "2026-02-15T12:31:28.047Z",
+      "success_count": 25,
+      "fail_count": 8,
+      "avg_elapsed_ms": 1161,
       "markets": [
         "CN",
         "HK"
@@ -432,7 +471,7 @@
       },
       "sample_successful_params": {
         "statement_type": "income",
-        "codes": "600089.SH",
+        "codes": "600519.SH",
         "year": "2025",
         "period": "0930",
         "type": "1"
@@ -443,14 +482,15 @@
       "tool_id": "finnhub.news.retrieve.v1.2e72ea5d",
       "provider": "finnhub",
       "first_seen_at": "2026-02-15T11:17:32.514Z",
-      "last_success_at": "2026-02-15T11:51:20.424Z",
-      "success_count": 15,
-      "fail_count": 0,
-      "avg_elapsed_ms": 1905,
+      "last_success_at": "2026-02-15T12:28:56.743Z",
+      "success_count": 16,
+      "fail_count": 18,
+      "avg_elapsed_ms": 2101,
       "markets": [
         "CN",
         "US",
-        "HK"
+        "HK",
+        "GLOBAL"
       ],
       "param_templates": {
         "CN": {
@@ -474,10 +514,85 @@
       "first_seen_at": "2026-02-15T11:20:08.080Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 4,
+      "fail_count": 7,
       "avg_elapsed_ms": 0,
       "markets": [
         "US"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "alphavantage.company.overview.retrieve.v1.467a92c0": {
+      "tool_id": "alphavantage.company.overview.retrieve.v1.467a92c0",
+      "provider": "alphavantage",
+      "first_seen_at": "2026-02-15T12:14:31.412Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 6,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "GLOBAL"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "twelvedata.statistics.retrieve.v1.af1559c2": {
+      "tool_id": "twelvedata.statistics.retrieve.v1.af1559c2",
+      "provider": "twelvedata",
+      "first_seen_at": "2026-02-15T12:14:32.390Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 6,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "GLOBAL"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "alphavantage.technical.macdext.retrieve.v1.7aca3c4a": {
+      "tool_id": "alphavantage.technical.macdext.retrieve.v1.7aca3c4a",
+      "provider": "alphavantage",
+      "first_seen_at": "2026-02-15T12:14:35.963Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 6,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "GLOBAL"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "ths_ifind.income_statement.v1": {
+      "tool_id": "ths_ifind.income_statement.v1",
+      "provider": "ths_ifind",
+      "first_seen_at": "2026-02-15T12:33:12.136Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 1,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "CN"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "ths_ifind.balance_sheet.v1": {
+      "tool_id": "ths_ifind.balance_sheet.v1",
+      "provider": "ths_ifind",
+      "first_seen_at": "2026-02-15T12:33:14.132Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 1,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "CN"
       ],
       "param_templates": {},
       "sample_successful_params": null,
