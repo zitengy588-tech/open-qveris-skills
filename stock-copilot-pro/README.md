@@ -7,6 +7,9 @@ Global multi-source stock analysis skill for ClawHub/OpenClaw style agents.
 - Full-stack market intelligence: quote, fundamentals, technicals, news sentiment, and X sentiment
 - Adaptive routing with fallback and dynamic tool learning (improves with usage)
 - Cross-market support for US/HK/CN with market-aware symbol normalization
+- Company-name friendly flow: auto resolves common company names to ticker + market (e.g. `特变电工` -> `600089.SH`)
+- CN/HK sentiment enhanced with `caidazi` channels (research reports, news, WeChat/public accounts)
+- CN/HK fundamentals enhanced with THS financial statements (income/balance sheet/cash flow)
 - Data quality guardrails: completeness, freshness, and cross-source consistency checks
 - Structured outputs for both human workflows (`markdown`) and downstream systems (`json`)
 
@@ -41,6 +44,7 @@ Or copy this folder directly into your agent skill directory.
 - Unified report sections:
   - `summary`
   - `fundamentals`
+    - includes financial report fields when available (`revenue`, `netProfit`, `totalAssets`, `totalLiabilities`, `operatingCashflow`)
   - `technicals`
   - `sentiment` (news + X)
   - `risks`
@@ -59,6 +63,7 @@ node scripts/stock_copilot_pro.mjs analyze --symbol AAPL --market US --mode comp
 ```bash
 node scripts/stock_copilot_pro.mjs analyze --symbol 0700 --market HK --mode technical
 node scripts/stock_copilot_pro.mjs analyze --symbol 600519 --market CN --mode comprehensive
+node scripts/stock_copilot_pro.mjs analyze --symbol "特变电工" --mode comprehensive
 ```
 
 ### Compare multiple symbols
@@ -114,6 +119,7 @@ node scripts/stock_copilot_pro.mjs analyze --symbol AAPL --format json
   - Export the key first, then rerun.
 - Some symbols return sparse/empty fields
   - Retry with market-specific code format (`0700.HK`, `600519.SH`).
+  - For CN/HK fundamentals, the script prioritizes THS financial statements before generic company basics.
   - Use `--mode basic` to get a quick quote/fundamentals baseline.
 - Sentiment endpoint rejects ticker format
   - Script falls back to general market news and adds warnings in `risks`.
@@ -134,16 +140,21 @@ Validated via QVeris MCP tool executions:
   - X sentiment: success
 - `HK (0700.HK)`:
   - Quote: success (THS real-time quotation)
-  - Fundamentals: success (THS company basics)
+  - Fundamentals: success (THS financial statements / company basics fallback)
   - Technical trend: success (THS history quotation)
   - Sentiment: fallback when ticker format is rejected
   - X sentiment: success (cached and direct query path verified)
 - `CN (600519.SH/600519.SS)`:
   - Quote: success (THS real-time quotation)
-  - Fundamentals: success (THS company basics)
+  - Fundamentals: success (THS financial statements / company basics fallback)
   - Technical trend: success (THS history quotation / RSI where available)
   - Sentiment: fallback when ticker format is rejected
   - X sentiment: success (direct or fallback path verified)
+- `CN company-name input (特变电工)`:
+  - Input resolution: success (`特变电工` -> `600089.SH`)
+  - News: success (`caidazi.news.query`)
+  - Research reports: success (`caidazi.report.query`)
+  - Fundamentals: success (`ths_ifind.financial_statements`, income statement fields verified)
 
 ## Security
 

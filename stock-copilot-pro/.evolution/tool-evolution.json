@@ -1,19 +1,44 @@
 {
   "version": 1,
-  "updated_at": "2026-02-15T09:30:16.741Z",
+  "updated_at": "2026-02-15T09:55:45.704Z",
   "capability_buckets": {
     "quote": {
       "tools": {
+        "ths_ifind.real_time_quotation.v1": {
+          "tool_id": "ths_ifind.real_time_quotation.v1",
+          "provider": "ths_ifind",
+          "first_seen_at": "2026-02-15T09:55:37.921Z",
+          "last_success_at": "2026-02-15T09:55:37.921Z",
+          "success_count": 1,
+          "fail_count": 0,
+          "avg_elapsed_ms": 999,
+          "markets": [
+            "CN"
+          ]
+        },
+        "finnhub_io_api.stock.quote": {
+          "tool_id": "finnhub_io_api.stock.quote",
+          "provider": "finnhub_io_api",
+          "first_seen_at": "2026-02-15T09:47:32.971Z",
+          "last_success_at": "2026-02-15T09:53:26.668Z",
+          "success_count": 3,
+          "fail_count": 0,
+          "avg_elapsed_ms": 1354,
+          "markets": [
+            "CN"
+          ]
+        },
         "twelvedata.quote.retrieve.v1.affbefe3": {
           "tool_id": "twelvedata.quote.retrieve.v1.affbefe3",
           "provider": "twelvedata",
           "first_seen_at": "2026-02-15T09:27:04.326Z",
           "last_success_at": "2026-02-15T09:30:15.783Z",
           "success_count": 7,
-          "fail_count": 0,
+          "fail_count": 2,
           "avg_elapsed_ms": 1092,
           "markets": [
-            "US"
+            "US",
+            "CN"
           ]
         },
         "alphavantage.realtime_bulk_quotes.retrieve.v1.7aca3c4a": {
@@ -22,23 +47,10 @@
           "first_seen_at": "2026-02-15T09:27:03.122Z",
           "last_success_at": null,
           "success_count": 0,
-          "fail_count": 1,
-          "avg_elapsed_ms": 0,
-          "markets": [
-            "US"
-          ]
-        },
-        "alphavantage.time_series_intraday.retrieve.v1.1e18340d": {
-          "tool_id": "alphavantage.time_series_intraday.retrieve.v1.1e18340d",
-          "provider": "alphavantage",
-          "first_seen_at": "2026-02-15T03:22:49.943Z",
-          "last_success_at": null,
-          "success_count": 0,
-          "fail_count": 20,
+          "fail_count": 3,
           "avg_elapsed_ms": 0,
           "markets": [
             "US",
-            "HK",
             "CN"
           ]
         },
@@ -69,26 +81,15 @@
             "HK",
             "CN"
           ]
-        }
-      },
-      "priority_queue": [
-        "twelvedata.quote.retrieve.v1.affbefe3",
-        "alphavantage.realtime_bulk_quotes.retrieve.v1.7aca3c4a",
-        "alphavantage.time_series_intraday.retrieve.v1.1e18340d",
-        "alphavantage.time_series.intraday.retrieve.v1",
-        "alphavantage.time-series.intraday.v1"
-      ]
-    },
-    "fundamentals": {
-      "tools": {
-        "alphavantage.fundamentals.income_statement.retrieve.v1.7aca3c4a": {
-          "tool_id": "alphavantage.fundamentals.income_statement.retrieve.v1.7aca3c4a",
+        },
+        "alphavantage.time_series_intraday.retrieve.v1.1e18340d": {
+          "tool_id": "alphavantage.time_series_intraday.retrieve.v1.1e18340d",
           "provider": "alphavantage",
-          "first_seen_at": "2026-02-15T03:22:51.247Z",
-          "last_success_at": "2026-02-15T09:30:16.736Z",
-          "success_count": 17,
-          "fail_count": 0,
-          "avg_elapsed_ms": 895,
+          "first_seen_at": "2026-02-15T03:22:49.943Z",
+          "last_success_at": null,
+          "success_count": 0,
+          "fail_count": 21,
+          "avg_elapsed_ms": 0,
           "markets": [
             "US",
             "HK",
@@ -97,19 +98,71 @@
         }
       },
       "priority_queue": [
-        "alphavantage.fundamentals.income_statement.retrieve.v1.7aca3c4a"
+        "ths_ifind.real_time_quotation.v1",
+        "finnhub_io_api.stock.quote",
+        "twelvedata.quote.retrieve.v1.affbefe3",
+        "alphavantage.realtime_bulk_quotes.retrieve.v1.7aca3c4a",
+        "alphavantage.time_series.intraday.retrieve.v1",
+        "alphavantage.time-series.intraday.v1",
+        "alphavantage.time_series_intraday.retrieve.v1.1e18340d"
+      ]
+    },
+    "fundamentals": {
+      "tools": {
+        "alphavantage.fundamentals.income_statement.retrieve.v1.7aca3c4a": {
+          "tool_id": "alphavantage.fundamentals.income_statement.retrieve.v1.7aca3c4a",
+          "provider": "alphavantage",
+          "first_seen_at": "2026-02-15T03:22:51.247Z",
+          "last_success_at": "2026-02-15T09:53:27.753Z",
+          "success_count": 20,
+          "fail_count": 0,
+          "avg_elapsed_ms": 900,
+          "markets": [
+            "US",
+            "HK",
+            "CN"
+          ]
+        },
+        "ths_ifind.company_basics.v1": {
+          "tool_id": "ths_ifind.company_basics.v1",
+          "provider": "ths_ifind",
+          "first_seen_at": "2026-02-15T09:55:40.013Z",
+          "last_success_at": "2026-02-15T09:55:40.013Z",
+          "success_count": 1,
+          "fail_count": 0,
+          "avg_elapsed_ms": 939,
+          "markets": [
+            "CN"
+          ]
+        }
+      },
+      "priority_queue": [
+        "alphavantage.fundamentals.income_statement.retrieve.v1.7aca3c4a",
+        "ths_ifind.company_basics.v1"
       ]
     },
     "technicals": {
       "tools": {
+        "ths_ifind.history_quotation.v1": {
+          "tool_id": "ths_ifind.history_quotation.v1",
+          "provider": "ths_ifind",
+          "first_seen_at": "2026-02-15T09:55:43.623Z",
+          "last_success_at": "2026-02-15T09:55:43.623Z",
+          "success_count": 1,
+          "fail_count": 0,
+          "avg_elapsed_ms": 1556,
+          "markets": [
+            "CN"
+          ]
+        },
         "alphavantage.technical_indicators.t3.retrieve.v1.7aca3c4a": {
           "tool_id": "alphavantage.technical_indicators.t3.retrieve.v1.7aca3c4a",
           "provider": "alphavantage",
           "first_seen_at": "2026-02-15T03:22:57.089Z",
-          "last_success_at": "2026-02-15T09:29:38.968Z",
-          "success_count": 12,
+          "last_success_at": "2026-02-15T09:53:28.440Z",
+          "success_count": 15,
           "fail_count": 0,
-          "avg_elapsed_ms": 2795,
+          "avg_elapsed_ms": 2546,
           "markets": [
             "US",
             "HK",
@@ -142,6 +195,7 @@
         }
       },
       "priority_queue": [
+        "ths_ifind.history_quotation.v1",
         "alphavantage.technical_indicators.t3.retrieve.v1.7aca3c4a",
         "twelvedata.macdslope.retrieve.v1.a926750b",
         "twelvedata.macd.retrieve.v1.9735a694"
@@ -149,14 +203,26 @@
     },
     "sentiment": {
       "tools": {
+        "finnhub.news.retrieve.v1": {
+          "tool_id": "finnhub.news.retrieve.v1",
+          "provider": "finnhub",
+          "first_seen_at": "2026-02-15T09:53:39.027Z",
+          "last_success_at": "2026-02-15T09:55:44.994Z",
+          "success_count": 2,
+          "fail_count": 0,
+          "avg_elapsed_ms": 5048,
+          "markets": [
+            "CN"
+          ]
+        },
         "alphavantage.news_sentiment.query.v1.7aca3c4a": {
           "tool_id": "alphavantage.news_sentiment.query.v1.7aca3c4a",
           "provider": "alphavantage",
           "first_seen_at": "2026-02-15T03:23:01.162Z",
-          "last_success_at": "2026-02-15T09:29:40.682Z",
-          "success_count": 12,
-          "fail_count": 0,
-          "avg_elapsed_ms": 1387,
+          "last_success_at": "2026-02-15T09:47:48.043Z",
+          "success_count": 14,
+          "fail_count": 2,
+          "avg_elapsed_ms": 1345,
           "markets": [
             "US",
             "HK",
@@ -165,6 +231,7 @@
         }
       },
       "priority_queue": [
+        "finnhub.news.retrieve.v1",
         "alphavantage.news_sentiment.query.v1.7aca3c4a"
       ]
     },
@@ -174,10 +241,10 @@
           "tool_id": "x_developer.2.tweets.search.recent.retrieve.v2.f424c8f9",
           "provider": "x_developer",
           "first_seen_at": "2026-02-15T03:25:29.361Z",
-          "last_success_at": "2026-02-15T09:29:41.699Z",
-          "success_count": 6,
+          "last_success_at": "2026-02-15T09:55:45.703Z",
+          "success_count": 10,
           "fail_count": 0,
-          "avg_elapsed_ms": 923,
+          "avg_elapsed_ms": 962,
           "markets": [
             "US",
             "HK",

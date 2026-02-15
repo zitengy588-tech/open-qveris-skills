@@ -48,9 +48,11 @@ It then generates a structured markdown report:
 
 ## Core Workflow
 
-1. Normalize symbol and detect market preference (`US/HK/CN/GLOBAL`).
+1. Resolve user input to symbol + market (supports company-name aliases, e.g. `特变电工` -> `600089.SH`).
 2. Search tools by capability (quote, fundamentals, indicators, sentiment, X sentiment).
-3. Rank candidates by `success_rate`, latency, and parameter fit.
+3. Rank candidates by `success_rate`, latency, parameter fit, and market-native provider preference.
+   - For CN/HK sentiment, prioritize `caidazi` channels (report/news/wechat).
+   - For CN/HK fundamentals, prioritize THS financial statements (income/balance sheet/cash flow), then fallback to company basics.
 4. Try learned priority queue first, then execute fallback candidates.
 5. Run quality checks:
    - Missing key fields
@@ -64,8 +66,20 @@ Primary script: `scripts/stock_copilot_pro.mjs`
 
 - Analyze one symbol:
   - `node scripts/stock_copilot_pro.mjs analyze --symbol AAPL --market US --mode comprehensive`
+  - `node scripts/stock_copilot_pro.mjs analyze --symbol "特变电工" --mode comprehensive`
 - Compare multiple symbols:
   - `node scripts/stock_copilot_pro.mjs compare --symbols AAPL,MSFT --market US --mode comprehensive`
+
+## CN/HK Coverage Details
+
+- Company-name input is supported and auto-resolved to market + symbol for common names.
+- Sentiment path prioritizes `caidazi` (research reports, news, wechat/public-account channels).
+- Fundamentals path prioritizes THS financial statements endpoints and extracts key fields such as:
+  - `revenue`
+  - `netProfit`
+  - `totalAssets`
+  - `totalLiabilities`
+  - `operatingCashflow`
 
 ## Output Modes
 

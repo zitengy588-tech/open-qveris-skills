@@ -2,4 +2,5 @@
 .cache/*.json
 .env
 .env.local
+cursor/
 .cursor/
