@@ -24,9 +24,10 @@ const CAPABILITY_QUERIES = {
 };
 
 const CN_HK_QUERY_HINTS = {
-  quote: "China and Hong Kong stock real-time quotation API",
-  fundamentals: "China and Hong Kong stock company basics API",
-  technicals: "China and Hong Kong stock historical quotation API",
+  quote: "ths_ifind.real_time_quotation China and Hong Kong stock real-time quotation API",
+  fundamentals:
+    "ths_ifind.financial_statements ths_ifind.company_basics China and Hong Kong stock financial statements and company basics API",
+  technicals: "ths_ifind.history_quotation China and Hong Kong stock historical quotation API",
 };
 
 const X_SENTIMENT_TOOL_PREFIXES = [
@@ -35,6 +36,20 @@ const X_SENTIMENT_TOOL_PREFIXES = [
   "qveris_social.x_domain_hot_topics",
   "qveris_social.x_domain_hot_events",
 ];
+const CAIDAZI_TOOL_PREFIXES = [
+  "caidazi.news.query",
+  "caidazi.report.query",
+  "caidazi.search.hybrid.list",
+  "caidazi.search.hybrid_v2.query",
+];
+
+const COMPANY_SYMBOL_ALIASES = {
+  特变电工: { symbol: "600089.SH", market: "CN" },
+  英伟达: { symbol: "NVDA", market: "US" },
+  腾讯: { symbol: "0700.HK", market: "HK" },
+  腾讯控股: { symbol: "0700.HK", market: "HK" },
+  贵州茅台: { symbol: "600519.SH", market: "CN" },
+};
 
 function redactSecrets(text) {
   if (!text) return text;
@@ -60,6 +75,7 @@ function getApiKey() {
 }
 
 function toNumber(value) {
+  if (value == null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -327,6 +343,163 @@ function summarizeTool(tool) {
   };
 }
 
+function hasCjk(text) {
+  return /[\u3400-\u9FFF]/.test(String(text || ""));
+}
+
+function normalizeAliasKey(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[（(]\s*[0-9A-Za-z._-]+\s*[)）]/g, "")
+    .replace(/\s+/g, "");
+}
+
+function extractTickerFromText(value) {
+  const raw = String(value || "").trim();
+  const withSuffix = raw.match(/([0-9]{4,6}\.(?:HK|SH|SZ|SS))/i);
+  if (withSuffix?.[1]) return withSuffix[1].toUpperCase();
+  const sixDigits = raw.match(/\b([0-9]{6})\b/);
+  if (sixDigits?.[1]) return sixDigits[1];
+  const fourDigits = raw.match(/\b([0-9]{4})\b/);
+  if (fourDigits?.[1]) return fourDigits[1];
+  return null;
+}
+
+function inferMarketFromSymbol(value) {
+  const raw = String(value || "").trim().toUpperCase();
+  if (!raw) return "GLOBAL";
+  if (raw.endsWith(".HK") || /^[0-9]{4,5}$/.test(raw)) return "HK";
+  if (/\.(SH|SZ|SS)$/.test(raw) || /^[0-9]{6}$/.test(raw)) return "CN";
+  if (raw.endsWith(".US") || /^[A-Z]{1,6}$/.test(raw)) return "US";
+  if (hasCjk(raw)) return "CN";
+  return "GLOBAL";
+}
+
+function resolveRequestedSymbol(input, preferredMarket = "GLOBAL") {
+  const original = String(input || "").trim();
+  const aliasKey = normalizeAliasKey(original);
+  const alias = COMPANY_SYMBOL_ALIASES[aliasKey];
+  if (alias) {
+    return {
+      original,
+      symbol: alias.symbol,
+      market: preferredMarket !== "GLOBAL" ? preferredMarket : alias.market,
+      resolvedBy: "alias",
+    };
+  }
+
+  const extractedTicker = extractTickerFromText(original);
+  if (extractedTicker) {
+    const market = preferredMarket !== "GLOBAL" ? preferredMarket : inferMarketFromSymbol(extractedTicker);
+    return {
+      original,
+      symbol: extractedTicker,
+      market,
+      resolvedBy: "ticker-extract",
+    };
+  }
+
+  const inferred = preferredMarket !== "GLOBAL" ? preferredMarket : inferMarketFromSymbol(original);
+  return {
+    original,
+    symbol: original,
+    market: inferred,
+    resolvedBy: hasCjk(original) ? "cjk-default" : "input",
+  };
+}
+
+function prioritizeCandidatesByMarket(candidates, capability, market) {
+  const list = [...(candidates || [])];
+  const isCnHkCore = ["CN", "HK"].includes(market) && ["quote", "fundamentals", "technicals"].includes(capability);
+  if (!isCnHkCore) return list;
+  const native = list.filter((t) => String(t?.tool_id || "").startsWith("ths_ifind."));
+  if (native.length === 0) return list;
+  const others = list.filter((t) => !String(t?.tool_id || "").startsWith("ths_ifind."));
+  return [...native, ...others];
+}
+
+function isCaidaziTool(toolId) {
+  const id = String(toolId || "");
+  return CAIDAZI_TOOL_PREFIXES.some((prefix) => id.startsWith(prefix));
+}
+
+function caidaziPriority(toolId) {
+  const id = String(toolId || "");
+  if (id.startsWith("caidazi.search.hybrid_v2.query")) return 4;
+  if (id.startsWith("caidazi.news.query")) return 3;
+  if (id.startsWith("caidazi.report.query")) return 2;
+  if (id.startsWith("caidazi.search.hybrid.list")) return 1;
+  return 0;
+}
+
+function thsFundamentalPriority(toolId) {
+  const id = String(toolId || "");
+  if (id.startsWith("ths_ifind.financial_statements")) return 5;
+  if (id.startsWith("ths_ifind.income_statement")) return 4;
+  if (id.startsWith("ths_ifind.balance_sheet")) return 3;
+  if (id.startsWith("ths_ifind.cash_flow_statement")) return 2;
+  if (id.startsWith("ths_ifind.company_basics")) return 1;
+  return 0;
+}
+
+function isToolCompatibleForCapability(toolId, capability, market) {
+  const id = String(toolId || "");
+  if (!id) return false;
+  if (capability === "quote") {
+    if (id.startsWith("ths_ifind.") && !id.startsWith("ths_ifind.real_time_quotation")) return false;
+    return true;
+  }
+  if (capability === "fundamentals") {
+    if (
+      id.startsWith("ths_ifind.") &&
+      !id.startsWith("ths_ifind.company_basics") &&
+      !id.startsWith("ths_ifind.financial_statements") &&
+      !id.startsWith("ths_ifind.income_statement") &&
+      !id.startsWith("ths_ifind.balance_sheet") &&
+      !id.startsWith("ths_ifind.cash_flow_statement")
+    ) {
+      return false;
+    }
+    return true;
+  }
+  if (capability === "technicals") {
+    if (id.startsWith("ths_ifind.") && !id.startsWith("ths_ifind.history_quotation")) return false;
+    return true;
+  }
+  if (capability === "x_sentiment") {
+    return X_SENTIMENT_TOOL_PREFIXES.some((prefix) => id.startsWith(prefix));
+  }
+  if (capability === "sentiment") {
+    return !id.startsWith("x_developer.");
+  }
+  if (["CN", "HK"].includes(market) && ["quote", "fundamentals", "technicals"].includes(capability)) {
+    if (id.startsWith("ths_ifind.")) return true;
+  }
+  return true;
+}
+
+function marketCapabilityBoost(tool, capability, market) {
+  const id = String(tool?.tool_id || "");
+  if (["CN", "HK"].includes(market) && ["quote", "fundamentals", "technicals"].includes(capability)) {
+    if (id.startsWith("ths_ifind.")) return 0.3;
+    if (id.startsWith("alphavantage.") || id.startsWith("twelvedata.") || id.startsWith("finnhub_io_api.")) return -0.08;
+  }
+  if (["CN", "HK"].includes(market) && capability === "fundamentals") {
+    if (id.startsWith("ths_ifind.financial_statements") || id.startsWith("ths_ifind.income_statement")) return 0.2;
+    if (id.startsWith("ths_ifind.balance_sheet")) return 0.14;
+    if (id.startsWith("ths_ifind.cash_flow_statement")) return 0.1;
+    if (id.startsWith("ths_ifind.company_basics")) return 0.08;
+  }
+  if (market === "US" && ["quote", "fundamentals", "technicals"].includes(capability)) {
+    if (id.startsWith("alphavantage.") || id.startsWith("twelvedata.") || id.startsWith("finnhub_io_api.")) return 0.08;
+  }
+  if (["CN", "HK"].includes(market) && capability === "sentiment") {
+    if (isCaidaziTool(id)) return 0.28;
+    if (id.startsWith("finnhub.") || id.startsWith("alphavantage.")) return -0.05;
+  }
+  return 0;
+}
+
 function normalizeSymbols(input, market) {
   const raw = (input || "").trim();
   if (!raw) return [];
@@ -434,6 +607,8 @@ function pickFundamentalData(raw) {
   const data = raw?.result?.data || raw?.data || raw || {};
   if (Array.isArray(data) && Array.isArray(data[0]) && data[0][0]) {
     const row = data[0][0];
+    const statementType = row.statement_type || row.statementType || null;
+    const period = row.time || row.end_date || row.report_date || null;
     return {
       symbol: row.ths_thscode_stock ?? row.thscode ?? null,
       name: row.ths_corp_cn_name_stock ?? null,
@@ -447,7 +622,14 @@ function pickFundamentalData(raw) {
       earningsGrowthYoy: null,
       week52High: null,
       week52Low: null,
-      latestQuarter: null,
+      latestQuarter: period,
+      statementType,
+      reportPeriod: period,
+      revenue: toNumber(row.ths_revenue_stock ?? row.ths_operating_total_revenue_stock),
+      netProfit: toNumber(row.ths_np_atoopc_stock ?? row.ths_np_stock),
+      totalAssets: toNumber(row.ths_total_assets_stock),
+      totalLiabilities: toNumber(row.ths_total_liab_stock),
+      operatingCashflow: toNumber(row.ths_ncf_from_oa_stock),
       raw: row,
     };
   }
@@ -505,6 +687,21 @@ function pickSentimentData(raw) {
   const payload = raw?.result || raw || {};
   const data = payload?.data || payload;
   const content = data?.truncated_content ? extractJSONFromTruncatedContent(data.truncated_content) : data;
+  const hits = content?.data?.hits || content?.hits || [];
+  if (Array.isArray(hits)) {
+    const latest = hits[0]?.source || hits[0] || null;
+    const sentimentScore = latest?.newsSentiment?.[0]?.sentimentScore ?? latest?.weChatSentiment?.[0]?.sentimentScore ?? null;
+    const sourceLabel = latest?.type || latest?.sourceName || latest?.siteName || null;
+    return {
+      itemCount: hits.length,
+      latestHeadline: latest?.title ?? null,
+      latestTime: latest?.publishTime ?? latest?.effectiveTime ?? null,
+      latestTickerSentiment: sentimentScore,
+      sourceLabel,
+      fullContentFileUrl: data?.full_content_file_url ?? null,
+      raw: content,
+    };
+  }
   if (Array.isArray(content)) {
     const latest = content[0] || null;
     return {
@@ -553,6 +750,7 @@ function pickXSentimentData(raw) {
 async function executeWithFallback(candidates, searchId, paramBuilder, options, executionMeta = {}) {
   const attempts = [];
   const maxAttempts = options.maxAttemptsPerPhase || 3;
+  const successValidator = executionMeta?.successValidator;
   for (const tool of candidates.slice(0, maxAttempts)) {
     const params = paramBuilder(tool);
     try {
@@ -560,18 +758,19 @@ async function executeWithFallback(candidates, searchId, paramBuilder, options, 
       const startedAt = Date.now();
       const result = await executeTool(tool.tool_id, sid, params, options.maxSize, options.timeoutMs);
       const ok = isToolCallSuccessful(result);
+      const validatedOk = ok && (typeof successValidator === "function" ? successValidator(result) : true);
       const elapsed = Date.now() - startedAt;
-      attempts.push({ toolId: tool.tool_id, ok, params, elapsed_ms: elapsed });
+      attempts.push({ toolId: tool.tool_id, ok: validatedOk, params, elapsed_ms: elapsed });
       if (options.evolutionState) {
         updateEvolutionOnAttempt(options.evolutionState, {
           ...executionMeta,
           toolId: tool.tool_id,
           elapsedMs: elapsed,
-          success: ok,
+          success: validatedOk,
           newlyLearnedCollector: options.newlyLearnedTools,
         });
       }
-      if (ok) {
+      if (validatedOk) {
         return { success: true, selectedTool: summarizeTool(tool), attempts, successfulResult: result };
       }
     } catch (error) {
@@ -621,6 +820,34 @@ function summarizeQuality(payload) {
   return { confidence, warnings };
 }
 
+function isParsedDataUsable(capability, parsed) {
+  if (!parsed || typeof parsed !== "object") return false;
+  if (capability === "quote") {
+    return parsed.price != null || parsed.symbol != null || parsed.timestamp != null;
+  }
+  if (capability === "fundamentals") {
+    return (
+      parsed.name != null ||
+      parsed.marketCap != null ||
+      parsed.pe != null ||
+      parsed.revenue != null ||
+      parsed.netProfit != null ||
+      parsed.totalAssets != null ||
+      parsed.operatingCashflow != null
+    );
+  }
+  if (capability === "technicals") {
+    return parsed.rsi != null || parsed.changeRatio != null || parsed.close != null;
+  }
+  if (capability === "sentiment") {
+    return parsed.itemCount != null;
+  }
+  if (capability === "x_sentiment") {
+    return parsed.itemCount != null;
+  }
+  return true;
+}
+
 function formatMarkdown(result) {
   const { symbol, market, mode, data, quality, evolution } = result;
   const q = data.quote?.parsed || {};
@@ -647,6 +874,10 @@ function formatMarkdown(result) {
   lines.push(`- Profit Margin: ${f.profitMargin ?? "N/A"}`);
   lines.push(`- Revenue Growth YoY: ${f.revenueGrowthYoy ?? "N/A"}`);
   lines.push(`- 52W Range: ${f.week52Low ?? "N/A"} - ${f.week52High ?? "N/A"}`);
+  lines.push(`- Financial Report Period: ${f.reportPeriod ?? f.latestQuarter ?? "N/A"}`);
+  lines.push(`- Revenue / Net Profit: ${f.revenue ?? "N/A"} / ${f.netProfit ?? "N/A"}`);
+  lines.push(`- Total Assets / Total Liabilities: ${f.totalAssets ?? "N/A"} / ${f.totalLiabilities ?? "N/A"}`);
+  lines.push(`- Operating Cashflow: ${f.operatingCashflow ?? "N/A"}`);
   lines.push("");
 
   lines.push("## technicals");
@@ -703,10 +934,31 @@ function historyDateRange(days = 45) {
   return { start: fmt(start), end: fmt(end) };
 }
 
+function latestCompletedReportPeriod() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  let year = now.getFullYear();
+  let period = "0930";
+  if (month <= 4) {
+    year -= 1;
+    period = "0930";
+  } else if (month <= 8) {
+    period = "0331";
+  } else if (month <= 10) {
+    period = "0630";
+  } else {
+    period = "0930";
+  }
+  return { year: String(year), period };
+}
+
 function capabilityQueries(capability, market) {
   const queries = [CAPABILITY_QUERIES[capability]];
   if (capability === "x_sentiment") {
     queries.push("X Finance domain hot topics API");
+  }
+  if (capability === "sentiment" && ["CN", "HK"].includes(market)) {
+    queries.unshift("caidazi A股 港股 研报 新闻 公众号 搜索");
   }
   if (["CN", "HK"].includes(market) && CN_HK_QUERY_HINTS[capability]) {
     queries.push(CN_HK_QUERY_HINTS[capability]);
@@ -731,7 +983,22 @@ async function searchAndRankByCapability(capability, options) {
       bestById.set(key, tool);
     }
   }
-  let ranked = rankTools([...bestById.values()]);
+  let ranked = rankTools([...bestById.values()])
+    .filter((tool) => isToolCompatibleForCapability(tool?.tool_id, capability, options.market))
+    .sort(
+    (a, b) =>
+      (b._score || 0) +
+      marketCapabilityBoost(b, capability, options.market) -
+      ((a._score || 0) + marketCapabilityBoost(a, capability, options.market)),
+    );
+  ranked = prioritizeCandidatesByMarket(ranked, capability, options.market);
+  if (capability === "fundamentals" && ["CN", "HK"].includes(options.market)) {
+    ranked = ranked.sort((a, b) => {
+      const p = thsFundamentalPriority(b?.tool_id) - thsFundamentalPriority(a?.tool_id);
+      if (p !== 0) return p;
+      return (b._score || 0) - (a._score || 0);
+    });
+  }
   if (capability === "x_sentiment") {
     ranked = ranked.filter((tool) => {
       const id = tool?.tool_id || "";
@@ -746,11 +1013,24 @@ async function searchAndRankByCapability(capability, options) {
       return (b._score || 0) - (a._score || 0);
     });
   }
+  if (capability === "sentiment" && ["CN", "HK"].includes(options.market)) {
+    const caidaziOnly = ranked.filter((tool) => isCaidaziTool(tool?.tool_id));
+    if (caidaziOnly.length > 0) {
+      caidaziOnly.sort((a, b) => {
+        const p = caidaziPriority(b?.tool_id) - caidaziPriority(a?.tool_id);
+        if (p !== 0) return p;
+        return (b._score || 0) - (a._score || 0);
+      });
+      ranked = [...caidaziOnly, ...ranked.filter((tool) => !isCaidaziTool(tool?.tool_id))];
+    }
+  }
   return { ranked, searchId: chosenSearchId };
 }
 
 async function runSingleAnalysis(symbol, options) {
-  const candidates = normalizeSymbols(symbol, options.market);
+  const resolvedInput = resolveRequestedSymbol(symbol, options.market);
+  const effectiveMarket = resolvedInput.market;
+  const candidates = normalizeSymbols(resolvedInput.symbol, effectiveMarket);
   let selectedSymbol = candidates[0];
   const output = { quote: null, fundamentals: null, technicals: null, sentiment: null, x_sentiment: null };
   const evolutionSummary = {
@@ -765,32 +1045,55 @@ async function runSingleAnalysis(symbol, options) {
     selectedSymbol = candidate;
     let foundAny = false;
     for (const capability of activeCapabilities) {
-      const evolvedCandidates = options.evolutionState ? getEvolutionCandidates(options.evolutionState, capability, options.market) : [];
-      evolutionSummary.queue_top3[capability] = evolvedCandidates.slice(0, 3).map((x) => x.tool_id);
-      if (evolvedCandidates.length === 0) {
+      const evolvedCandidates = options.evolutionState
+        ? getEvolutionCandidates(options.evolutionState, capability, effectiveMarket)
+        : [];
+      const marketAwareEvolvedCandidates = prioritizeCandidatesByMarket(evolvedCandidates, capability, effectiveMarket);
+      const nativeCoreCapability =
+        ["CN", "HK"].includes(effectiveMarket) && ["quote", "fundamentals", "technicals"].includes(capability);
+      const cnHkSentimentNeedsCaidazi = ["CN", "HK"].includes(effectiveMarket) && capability === "sentiment";
+      const hasNativeEvolved = marketAwareEvolvedCandidates.some((x) =>
+        String(x?.tool_id || "").startsWith("ths_ifind."),
+      );
+      const hasCaidaziEvolved = marketAwareEvolvedCandidates.some((x) => isCaidaziTool(x?.tool_id));
+      const activeEvolvedCandidates =
+        (nativeCoreCapability && !hasNativeEvolved) || (cnHkSentimentNeedsCaidazi && !hasCaidaziEvolved)
+          ? []
+          : marketAwareEvolvedCandidates;
+      evolutionSummary.queue_top3[capability] = activeEvolvedCandidates.slice(0, 3).map((x) => x.tool_id);
+      if (activeEvolvedCandidates.length === 0) {
         evolutionSummary.queue_top3[capability] = [];
       }
       let ranked = [];
       let searchId = null;
-      if (evolvedCandidates.length === 0) {
-        const search = await searchAndRankByCapability(capability, options);
+      const runtimeOptions = { ...options, market: effectiveMarket };
+      if (activeEvolvedCandidates.length === 0) {
+        const search = await searchAndRankByCapability(capability, runtimeOptions);
         ranked = search.ranked;
         searchId = search.searchId;
       }
-      if (ranked.length === 0 && evolvedCandidates.length === 0) {
+      if (ranked.length === 0 && activeEvolvedCandidates.length === 0) {
         output[capability] = { success: false, reason: "no tools found", attempts: [] };
         continue;
       }
       foundAny = true;
       let executed = null;
       let cachedAttempt = null;
-      if (evolvedCandidates.length > 0) {
+      if (activeEvolvedCandidates.length > 0) {
         cachedAttempt = await executeWithFallback(
-          evolvedCandidates,
+          activeEvolvedCandidates,
           null,
-          (tool) => buildParamsForCapability(capability, candidate, options.mode, tool, options.market),
+          (tool) =>
+            buildParamsForCapability(capability, candidate, options.mode, tool, effectiveMarket, {
+              originalInput: resolvedInput.original,
+            }),
           options,
-          { capability, market: options.market, symbol: candidate },
+          {
+            capability,
+            market: effectiveMarket,
+            symbol: candidate,
+            successValidator: (raw) => isParsedDataUsable(capability, parseCapability(capability, raw)),
+          },
         );
         if (cachedAttempt.success) {
           evolutionSummary.used_from_cache += 1;
@@ -799,16 +1102,24 @@ async function runSingleAnalysis(symbol, options) {
       }
       if (!executed) {
         if (ranked.length === 0) {
-          const search = await searchAndRankByCapability(capability, options);
+          const search = await searchAndRankByCapability(capability, runtimeOptions);
           ranked = search.ranked;
           searchId = search.searchId;
         }
         const freshAttempt = await executeWithFallback(
           ranked,
           searchId,
-          (tool) => buildParamsForCapability(capability, candidate, options.mode, tool, options.market),
+          (tool) =>
+            buildParamsForCapability(capability, candidate, options.mode, tool, effectiveMarket, {
+              originalInput: resolvedInput.original,
+            }),
           options,
-          { capability, market: options.market, symbol: candidate },
+          {
+            capability,
+            market: effectiveMarket,
+            symbol: candidate,
+            successValidator: (raw) => isParsedDataUsable(capability, parseCapability(capability, raw)),
+          },
         );
         executed = { ...freshAttempt, fromEvolutionQueue: false, previousCacheAttempt: cachedAttempt };
       }
@@ -831,7 +1142,7 @@ async function runSingleAnalysis(symbol, options) {
   evolutionSummary.new_tools_learned = [...new Set(options.newlyLearnedTools || [])];
   return {
     symbol: selectedSymbol,
-    market: options.market,
+    market: effectiveMarket,
     mode: options.mode,
     data: output,
     quality,
@@ -839,6 +1150,12 @@ async function runSingleAnalysis(symbol, options) {
     runtime: {
       includeSourceUrls: Boolean(options.includeSourceUrls),
       evolutionEnabled: Boolean(options.evolutionEnabled),
+      resolvedInput: {
+        original: resolvedInput.original,
+        symbol: resolvedInput.symbol,
+        market: resolvedInput.market,
+        resolvedBy: resolvedInput.resolvedBy,
+      },
     },
   };
 }
@@ -861,15 +1178,33 @@ function sanitizeParsedCapability(parsed, options) {
   return cleaned;
 }
 
-function buildParamsForCapability(capability, symbol, mode, tool, market) {
+function buildParamsForCapability(capability, symbol, mode, tool, market, context = {}) {
   const toolId = tool?.tool_id || "";
   const thsCode = toThsCode(symbol, market);
+  const base = String(symbol || "").toUpperCase().replace(/\.(US|HK|SH|SZ|SS)$/, "");
+  const originalInput = String(context.originalInput || "").trim();
+  const keyword = hasCjk(originalInput) ? originalInput : hasCjk(symbol) ? String(symbol) : base;
+  const caidaziTicker = market === "HK" ? base.replace(/^0+/, "").padStart(4, "0") : base;
+  const recentStart = historyDateRange(120).start;
+  const report = latestCompletedReportPeriod();
 
   if (toolId.startsWith("ths_ifind.real_time_quotation")) {
     return { codes: thsCode };
   }
   if (toolId.startsWith("ths_ifind.company_basics")) {
     return { codes: thsCode };
+  }
+  if (toolId.startsWith("ths_ifind.financial_statements")) {
+    return { statement_type: "income", codes: thsCode, year: report.year, period: report.period, type: "1" };
+  }
+  if (toolId.startsWith("ths_ifind.income_statement")) {
+    return { codes: thsCode, year: report.year, period: report.period, type: "1" };
+  }
+  if (toolId.startsWith("ths_ifind.balance_sheet")) {
+    return { codes: thsCode, year: report.year, period: report.period, type: "1" };
+  }
+  if (toolId.startsWith("ths_ifind.cash_flow_statement")) {
+    return { codes: thsCode, year: report.year, period: report.period, type: "1" };
   }
   if (toolId.startsWith("ths_ifind.history_quotation")) {
     const range = historyDateRange(45);
@@ -878,8 +1213,42 @@ function buildParamsForCapability(capability, symbol, mode, tool, market) {
   if (toolId.startsWith("finnhub.news")) {
     return { category: "general" };
   }
+  if (toolId.startsWith("caidazi.search.hybrid_v2.query")) {
+    return {
+      input: keyword,
+      ticker: caidaziTicker,
+      sourceType: "report,news,wechat",
+      size: 5,
+      highlight: "true",
+      sortOrder: "desc",
+      publishTimeStart: recentStart,
+      timeSensitive: true,
+    };
+  }
+  if (toolId.startsWith("caidazi.news.query")) {
+    return {
+      input: keyword,
+      ticker: caidaziTicker,
+      size: 5,
+      highlight: "true",
+      sortOrder: "desc",
+      publishTimeStart: recentStart,
+    };
+  }
+  if (toolId.startsWith("caidazi.report.query")) {
+    return {
+      input: keyword,
+      tsCode: caidaziTicker,
+      size: 5,
+      highlight: "true",
+      sortOrder: "desc",
+      publishDateStart: recentStart,
+    };
+  }
+  if (toolId.startsWith("caidazi.search.hybrid.list")) {
+    return { input: keyword };
+  }
   if (toolId.startsWith("x_developer.2.tweets.search.recent")) {
-    const base = String(symbol || "").toUpperCase().replace(/\.(US|HK|SH|SZ|SS)$/, "");
     return {
       query: `(${base} OR $${base}) lang:en -is:retweet`,
       max_results: 20,
@@ -910,7 +1279,6 @@ function buildParamsForCapability(capability, symbol, mode, tool, market) {
     return { function: "NEWS_SENTIMENT", tickers: symbol, sort: "LATEST", limit: 10 };
   }
   if (capability === "x_sentiment") {
-    const base = String(symbol || "").toUpperCase().replace(/\.(US|HK|SH|SZ|SS)$/, "");
     return {
       query: `(${base} OR $${base}) lang:en -is:retweet`,
       max_results: 20,
