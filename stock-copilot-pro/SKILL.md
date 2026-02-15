@@ -35,12 +35,17 @@ Stock Copilot Pro performs end-to-end stock analysis with five data domains:
 4. News and sentiment
 5. X sentiment
 
-It then generates a structured markdown report:
-`summary / fundamentals / technicals / sentiment / risks / conclusion`.
+It then generates a data-rich analyst report with:
+- value-investing scorecard
+- event-timing anti-chasing classification
+- safety-margin estimate
+- scenario-based recommendations
+- standard readable output (default) + optional full evidence trace (`--evidence`)
 
 ## Key Advantages
 
-- Dynamic tool learning that improves route quality over time
+- Deterministic tool routing via `references/tool-chains.json`
+- Evolution v2 parameter-template memory to reduce recurring parameter errors
 - Strong fallback strategy across providers and markets
 - US/HK/CN market-aware symbol handling
 - Structured outputs for both analyst reading and machine ingestion
@@ -50,15 +55,20 @@ It then generates a structured markdown report:
 
 1. Resolve user input to symbol + market (supports company-name aliases, e.g. `特变电工` -> `600089.SH`).
 2. Search tools by capability (quote, fundamentals, indicators, sentiment, X sentiment).
-3. Rank candidates by `success_rate`, latency, parameter fit, and market-native provider preference.
+3. Route by hardcoded tool chains first (market-aware), then fallback generic capability search.
    - For CN/HK sentiment, prioritize `caidazi` channels (report/news/wechat).
    - For CN/HK fundamentals, prioritize THS financial statements (income/balance sheet/cash flow), then fallback to company basics.
-4. Try learned priority queue first, then execute fallback candidates.
+4. Before execution, try evolution parameter templates; if unavailable, use default param builder.
 5. Run quality checks:
    - Missing key fields
    - Data recency
    - Cross-source inconsistency
-6. Produce report with confidence score and explicit caveats.
+6. Produce analyst report with:
+   - composite score
+   - safety margin
+   - event-driven vs pullback-risk timing classification
+   - market scenario suggestions
+   - optional parsed/raw evidence sections when `--evidence` is enabled
 
 ## Command Surface
 
@@ -74,12 +84,15 @@ Primary script: `scripts/stock_copilot_pro.mjs`
 
 - Company-name input is supported and auto-resolved to market + symbol for common names.
 - Sentiment path prioritizes `caidazi` (research reports, news, wechat/public-account channels).
-- Fundamentals path prioritizes THS financial statements endpoints and extracts key fields such as:
+- Fundamentals path prioritizes THS financial statements endpoints, and always calls THS company basics for profile backfill:
   - `revenue`
   - `netProfit`
   - `totalAssets`
   - `totalLiabilities`
   - `operatingCashflow`
+  - `industry`
+  - `mainBusiness`
+  - `tags`
 
 ## Output Modes
 
@@ -89,8 +102,9 @@ Primary script: `scripts/stock_copilot_pro.mjs`
 ## Dynamic Evolution
 
 - Runtime learning state is stored in `.evolution/tool-evolution.json`.
-- Admission policy is aggressive: one successful tool execution can enter queue.
-- Future runs prioritize previously successful tools to improve execution reliability.
+- One successful execution can update tool parameter templates.
+- Evolution stores `param_templates` and `sample_successful_params` for reuse.
+- Evolution does not decide tool priority; tool priority is controlled by `tool-chains.json`.
 - Use `--no-evolution` to disable loading/saving runtime learning state.
 
 ## Safety and Disclosure
@@ -98,7 +112,7 @@ Primary script: `scripts/stock_copilot_pro.mjs`
 - Uses only `QVERIS_API_KEY`.
 - Calls only QVeris APIs over HTTPS.
 - Does not store API keys in logs, reports, or evolution state.
-- Runtime persistence is limited to `.evolution/tool-evolution.json` (tool routing stats only).
+- Runtime persistence is limited to `.evolution/tool-evolution.json` (metadata + parameter templates only).
 - No package installation or arbitrary command execution is performed by this skill script.
 - Research-only output. Not investment advice.
 
