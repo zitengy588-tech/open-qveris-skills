@@ -3,13 +3,15 @@ name: stock-copilot-pro
 description: High-performance global stock analysis copilot powered by QVeris. Fuses quote, fundamentals, technicals, news sentiment, and X sentiment with adaptive tool learning for higher success and better signal quality.
 env:
   - QVERIS_API_KEY
-requirements:
-  env_vars:
-    - QVERIS_API_KEY
 credentials:
-  primary: QVERIS_API_KEY
+  required:
+    - QVERIS_API_KEY
+  primary_env: QVERIS_API_KEY
   scope: read-only
   endpoint: https://qveris.ai/api/v1
+network:
+  outbound_hosts:
+    - qveris.ai
 auto_invoke: true
 source: https://qveris.ai
 examples:
@@ -75,11 +77,14 @@ Primary script: `scripts/stock_copilot_pro.mjs`
 - Runtime learning state is stored in `.evolution/tool-evolution.json`.
 - Admission policy is aggressive: one successful tool execution can enter queue.
 - Future runs prioritize previously successful tools to improve execution reliability.
+- Use `--no-evolution` to disable loading/saving runtime learning state.
 
 ## Safety and Disclosure
 
 - Uses only `QVERIS_API_KEY`.
 - Calls only QVeris APIs over HTTPS.
 - Does not store API keys in logs, reports, or evolution state.
+- Runtime persistence is limited to `.evolution/tool-evolution.json` (tool routing stats only).
+- No package installation or arbitrary command execution is performed by this skill script.
 - Research-only output. Not investment advice.
 

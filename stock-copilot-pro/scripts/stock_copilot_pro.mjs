@@ -11,6 +11,9 @@ const SKILL_ROOT = path.resolve(__dirname, "..");
 const EVOLUTION_DIR = path.join(SKILL_ROOT, ".evolution");
 const EVOLUTION_FILE = path.join(EVOLUTION_DIR, "tool-evolution.json");
 const EVOLUTION_VERSION = 1;
+const MAX_CAPABILITY_BUCKETS = 8;
+const MAX_TOOLS_PER_CAPABILITY = 30;
+const MAX_MARKETS_PER_TOOL = 6;
 
 const CAPABILITY_QUERIES = {
   quote: "real-time stock quote and historical OHLCV data API",
@@ -38,6 +41,8 @@ function redactSecrets(text) {
   return String(text)
     .replace(/Bearer\s+[A-Za-z0-9\-\._~\+\/]+=*/gi, "Bearer [REDACTED]")
     .replace(/QVERIS_API_KEY\s*[:=]\s*['"]?[^'"\s]+['"]?/gi, "QVERIS_API_KEY=[REDACTED]")
+    .replace(/("?(?:qveris_api_key|authorization)"?\s*[:=]\s*)("[^"]*"|'[^']*'|[^\s,}]+)/gi, "$1[REDACTED]")
+    .replace(/([?&](?:api_key|token|access_token|authorization)=)[^&\s]+/gi, "$1[REDACTED]")
     .replace(/[A-Za-z0-9_-]{24,}\.[A-Za-z0-9._-]{10,}\.[A-Za-z0-9._-]{10,}/g, "[REDACTED_TOKEN]");
 }
 
@@ -73,6 +78,54 @@ function emptyEvolutionState() {
   };
 }
 
+function toInt(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isInteger(n) ? n : fallback;
+}
+
+function sanitizeToolRecord(toolId, record) {
+  const markets = Array.isArray(record?.markets)
+    ? [...new Set(record.markets.filter((x) => typeof x === "string"))].slice(0, MAX_MARKETS_PER_TOOL)
+    : [];
+  return {
+    tool_id: String(toolId),
+    provider: typeof record?.provider === "string" ? record.provider : pickProvider(toolId),
+    first_seen_at: typeof record?.first_seen_at === "string" ? record.first_seen_at : isoNow(),
+    last_success_at: typeof record?.last_success_at === "string" ? record.last_success_at : null,
+    success_count: Math.max(0, toInt(record?.success_count, 0)),
+    fail_count: Math.max(0, toInt(record?.fail_count, 0)),
+    avg_elapsed_ms: Math.max(0, toInt(record?.avg_elapsed_ms, 0)),
+    markets,
+  };
+}
+
+function sanitizeEvolutionState(state) {
+  const safe = emptyEvolutionState();
+  if (!state || typeof state !== "object" || typeof state.capability_buckets !== "object") {
+    return safe;
+  }
+  const capabilities = Object.keys(state.capability_buckets).slice(0, MAX_CAPABILITY_BUCKETS);
+  for (const capability of capabilities) {
+    const bucket = state.capability_buckets[capability];
+    if (!bucket || typeof bucket !== "object" || typeof bucket.tools !== "object") continue;
+    const cleanedTools = {};
+    const toolIds = Object.keys(bucket.tools).slice(0, MAX_TOOLS_PER_CAPABILITY * 3);
+    for (const toolId of toolIds) {
+      if (!toolId || typeof toolId !== "string") continue;
+      cleanedTools[toolId] = sanitizeToolRecord(toolId, bucket.tools[toolId]);
+    }
+    const ranked = Object.values(cleanedTools)
+      .sort((a, b) => scoreEvolutionRecord(b, "GLOBAL") - scoreEvolutionRecord(a, "GLOBAL"))
+      .slice(0, MAX_TOOLS_PER_CAPABILITY);
+    safe.capability_buckets[capability] = {
+      tools: Object.fromEntries(ranked.map((x) => [x.tool_id, x])),
+      priority_queue: ranked.map((x) => x.tool_id),
+    };
+  }
+  safe.updated_at = isoNow();
+  return safe;
+}
+
 function ensureBucket(state, capability) {
   if (!state.capability_buckets[capability]) {
     state.capability_buckets[capability] = {
@@ -87,22 +140,14 @@ async function loadEvolutionState() {
   try {
     const content = await fs.readFile(EVOLUTION_FILE, "utf8");
     const parsed = JSON.parse(content);
-    if (!parsed || typeof parsed !== "object") return emptyEvolutionState();
-    if (!parsed.capability_buckets || typeof parsed.capability_buckets !== "object") {
-      return emptyEvolutionState();
-    }
-    return parsed;
+    return sanitizeEvolutionState(parsed);
   } catch {
     return emptyEvolutionState();
   }
 }
 
 async function saveEvolutionState(state) {
-  const payload = {
-    version: EVOLUTION_VERSION,
-    updated_at: isoNow(),
-    capability_buckets: state.capability_buckets || {},
-  };
+  const payload = sanitizeEvolutionState(state);
   await fs.mkdir(EVOLUTION_DIR, { recursive: true });
   await fs.writeFile(EVOLUTION_FILE, JSON.stringify(payload, null, 2), "utf8");
 }
@@ -125,9 +170,11 @@ function scoreEvolutionRecord(record, market) {
 
 function refreshBucketPriority(state, capability, market) {
   const bucket = ensureBucket(state, capability);
-  bucket.priority_queue = Object.values(bucket.tools)
+  const ranked = Object.values(bucket.tools)
     .sort((a, b) => scoreEvolutionRecord(b, market) - scoreEvolutionRecord(a, market))
-    .map((x) => x.tool_id);
+    .slice(0, MAX_TOOLS_PER_CAPABILITY);
+  bucket.tools = Object.fromEntries(ranked.map((x) => [x.tool_id, x]));
+  bucket.priority_queue = ranked.map((x) => x.tool_id);
 }
 
 function getEvolutionCandidates(state, capability, market) {
@@ -144,7 +191,6 @@ function getEvolutionCandidates(state, capability, market) {
         avg_execution_time_ms: record.avg_elapsed_ms || 9999,
       },
       _fromEvolution: true,
-      _cachedSearchId: record.last_search_id || null,
     });
   }
   return candidates;
@@ -154,11 +200,9 @@ function updateEvolutionOnAttempt(state, meta) {
   const {
     capability,
     market,
-    symbol,
     toolId,
     elapsedMs,
     success,
-    searchId,
     newlyLearnedCollector,
   } = meta;
   if (!toolId || !capability) return;
@@ -173,16 +217,10 @@ function updateEvolutionOnAttempt(state, meta) {
       fail_count: 0,
       avg_elapsed_ms: 0,
       markets: [],
-      symbols_sample: [],
-      last_search_id: null,
     };
   }
   const record = bucket.tools[toolId];
   if (!record.markets.includes(market)) record.markets.push(market);
-  if (symbol && !record.symbols_sample.includes(symbol) && record.symbols_sample.length < 10) {
-    record.symbols_sample.push(symbol);
-  }
-  if (searchId) record.last_search_id = searchId;
 
   if (success) {
     record.success_count += 1;
@@ -277,6 +315,16 @@ function rankTools(results) {
       ...tool,
       _score: scoreTool(tool),
     }));
+}
+
+function summarizeTool(tool) {
+  if (!tool || typeof tool !== "object") return null;
+  return {
+    tool_id: tool.tool_id ?? null,
+    name: tool.name ?? null,
+    stats: tool.stats ?? null,
+    _fromEvolution: Boolean(tool._fromEvolution),
+  };
 }
 
 function normalizeSymbols(input, market) {
@@ -508,24 +556,23 @@ async function executeWithFallback(candidates, searchId, paramBuilder, options, 
   for (const tool of candidates.slice(0, maxAttempts)) {
     const params = paramBuilder(tool);
     try {
-      const sid = tool?._cachedSearchId || searchId;
+      const sid = searchId;
       const startedAt = Date.now();
       const result = await executeTool(tool.tool_id, sid, params, options.maxSize, options.timeoutMs);
       const ok = isToolCallSuccessful(result);
       const elapsed = Date.now() - startedAt;
-      attempts.push({ toolId: tool.tool_id, ok, result, params, elapsed_ms: elapsed });
+      attempts.push({ toolId: tool.tool_id, ok, params, elapsed_ms: elapsed });
       if (options.evolutionState) {
         updateEvolutionOnAttempt(options.evolutionState, {
           ...executionMeta,
           toolId: tool.tool_id,
           elapsedMs: elapsed,
           success: ok,
-          searchId: sid,
           newlyLearnedCollector: options.newlyLearnedTools,
         });
       }
       if (ok) {
-        return { success: true, selectedTool: tool, attempts };
+        return { success: true, selectedTool: summarizeTool(tool), attempts, successfulResult: result };
       }
     } catch (error) {
       attempts.push({ toolId: tool.tool_id, ok: false, error: redactSecrets(error.message), params });
@@ -535,7 +582,6 @@ async function executeWithFallback(candidates, searchId, paramBuilder, options, 
           toolId: tool.tool_id,
           elapsedMs: 0,
           success: false,
-          searchId,
           newlyLearnedCollector: options.newlyLearnedTools,
         });
       }
@@ -614,7 +660,9 @@ function formatMarkdown(result) {
   lines.push(`- News Items: ${s.itemCount ?? "N/A"}`);
   lines.push(`- Latest Headline: ${s.latestHeadline ?? "N/A"}`);
   lines.push(`- Latest Ticker Sentiment: ${s.latestTickerSentiment ?? "N/A"}`);
-  if (s.fullContentFileUrl) lines.push(`- Full Content URL: ${s.fullContentFileUrl}`);
+  if (result?.runtime?.includeSourceUrls && s.fullContentFileUrl) {
+    lines.push(`- Full Content URL: ${s.fullContentFileUrl}`);
+  }
   lines.push(`- X Posts: ${x.itemCount ?? "N/A"} (${x.sourceMode ?? "N/A"})`);
   lines.push(`- X Top Post: ${x.topPostText ?? "N/A"}`);
   lines.push("");
@@ -766,12 +814,15 @@ async function runSingleAnalysis(symbol, options) {
       }
       output[capability] = {
         ...executed,
-        searchId,
         rankedTop: ranked.slice(0, 3).map((t) => t.tool_id),
       };
       if (executed.success) {
-        output[capability].parsed = parseCapability(capability, executed.attempts.find((x) => x.ok)?.result);
+        output[capability].parsed = sanitizeParsedCapability(
+          parseCapability(capability, executed.successfulResult),
+          options,
+        );
       }
+      delete output[capability].successfulResult;
     }
     if (foundAny) break;
   }
@@ -785,6 +836,10 @@ async function runSingleAnalysis(symbol, options) {
     data: output,
     quality,
     evolution: evolutionSummary,
+    runtime: {
+      includeSourceUrls: Boolean(options.includeSourceUrls),
+      evolutionEnabled: Boolean(options.evolutionEnabled),
+    },
   };
 }
 
@@ -795,6 +850,15 @@ function parseCapability(capability, raw) {
   if (capability === "sentiment") return pickSentimentData(raw);
   if (capability === "x_sentiment") return pickXSentimentData(raw);
   return raw;
+}
+
+function sanitizeParsedCapability(parsed, options) {
+  if (!parsed || typeof parsed !== "object") return parsed;
+  const cleaned = { ...parsed };
+  if (!options?.includeSourceUrls) {
+    delete cleaned.fullContentFileUrl;
+  }
+  return cleaned;
 }
 
 function buildParamsForCapability(capability, symbol, mode, tool, market) {
@@ -869,6 +933,8 @@ function parseArgs(argv) {
     maxSize: 30000,
     timeoutMs: 25000,
     maxAttemptsPerPhase: 3,
+    includeSourceUrls: false,
+    evolutionEnabled: true,
   };
 
   for (let i = 1; i < args.length; i++) {
@@ -881,6 +947,8 @@ function parseArgs(argv) {
     else if (key === "--limit" && i + 1 < args.length) parsed.limit = Number(args[++i]) || 10;
     else if (key === "--max-size" && i + 1 < args.length) parsed.maxSize = Number(args[++i]) || 30000;
     else if (key === "--timeout" && i + 1 < args.length) parsed.timeoutMs = (Number(args[++i]) || 25) * 1000;
+    else if (key === "--include-source-urls") parsed.includeSourceUrls = true;
+    else if (key === "--no-evolution") parsed.evolutionEnabled = false;
   }
   return parsed;
 }
@@ -899,6 +967,8 @@ Options:
   --limit N                  search results per capability (default 10)
   --max-size N               max response size bytes (default 30000)
   --timeout N                timeout seconds (default 25)
+  --include-source-urls      include provider full-content URLs in report
+  --no-evolution             disable reading/writing .evolution state
   --help                     show this message
 `);
 }
@@ -909,14 +979,14 @@ async function main() {
     printHelp();
     return;
   }
-  args.evolutionState = await loadEvolutionState();
+  args.evolutionState = args.evolutionEnabled ? await loadEvolutionState() : null;
   args.newlyLearnedTools = [];
 
   if (args.command === "analyze") {
     if (!args.symbol) throw new Error("analyze requires --symbol");
     const result = await runSingleAnalysis(args.symbol, args);
     result.evolution.new_tools_learned = [...new Set(args.newlyLearnedTools)];
-    await saveEvolutionState(args.evolutionState);
+    if (args.evolutionEnabled && args.evolutionState) await saveEvolutionState(args.evolutionState);
     if (args.format === "json") console.log(JSON.stringify(result, null, 2));
     else console.log(formatMarkdown(result));
     return;
@@ -929,7 +999,7 @@ async function main() {
     for (const s of symbols) {
       reports.push(await runSingleAnalysis(s, args));
     }
-    await saveEvolutionState(args.evolutionState);
+    if (args.evolutionEnabled && args.evolutionState) await saveEvolutionState(args.evolutionState);
     if (args.format === "json") {
       console.log(
         JSON.stringify(

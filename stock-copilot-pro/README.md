@@ -78,6 +78,8 @@ node scripts/stock_copilot_pro.mjs analyze --symbol AAPL --format json
 - First run: discovers and evaluates candidate tools
 - Later runs: prioritizes tools learned from successful executions
 - Evolution state file: `.evolution/tool-evolution.json`
+- Persistence is minimal by design: tool routing stats only (no API key, no auth header, no raw payload)
+- You can disable persistence per run with `--no-evolution`
 
 ## Prompt Examples
 
@@ -96,12 +98,14 @@ node scripts/stock_copilot_pro.mjs analyze --symbol AAPL --format json
 - `--limit`: search result count per capability (default: `10`)
 - `--max-size`: max response bytes per execution (default: `30000`)
 - `--timeout`: timeout in seconds (default: `25`)
+- `--include-source-urls`: include provider `full_content_file_url` in output (off by default)
+- `--no-evolution`: disable reading/writing `.evolution/tool-evolution.json` for this run
 
 ## Notes
 
 - Data availability can vary by symbol and provider.
 - The script will attempt fallback tools and clearly report missing sections.
-- Large provider responses may include truncation metadata and file URLs.
+- External source URLs are hidden by default in report output.
 - X sentiment may use direct ticker search first and fall back to finance-domain hot posts when needed.
 
 ## Troubleshooting
@@ -147,6 +151,8 @@ Validated via QVeris MCP tool executions:
 - `.env.local` is supported for local testing but should not be uploaded.
 - Runtime evolution state stores tool metadata and performance stats only.
 - API keys and authorization headers are not persisted in evolution files.
+- Evolution state is pruned with bounded size to avoid unbounded local persistence.
+- Script calls only QVeris APIs (`qveris.ai`) and does not install packages or run arbitrary commands.
 
 ## Disclaimer
 
