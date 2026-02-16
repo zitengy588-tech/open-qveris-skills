@@ -1,0 +1,26 @@
+{
+  "morning_brief": {
+    "schedule": "0 9 * * 1-5",
+    "command": "brief --type morning --max-items 8 --format chat",
+    "delivery": {
+      "announce": true,
+      "channels": [
+        "telegram:stock-copilot"
+      ]
+    }
+  },
+  "evening_brief": {
+    "schedule": "0 17 * * 1-5",
+    "command": "brief --type evening --max-items 8 --format chat",
+    "delivery": {
+      "announce": true
+    }
+  },
+  "daily_radar": {
+    "schedule": "30 8 * * 1-5",
+    "command": "radar --market GLOBAL --limit 10 --format markdown",
+    "delivery": {
+      "announce": false
+    }
+  }
+}
