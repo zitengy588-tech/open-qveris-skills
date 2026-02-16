@@ -3,8 +3,33 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildQuestionnaire, parsePreferences } from "./lib/questionnaire.mjs";
+import { buildFinancialQuality, buildThesis, buildValuationFrame, buildScorecard as buildScorecardV2, detectChaseRisk as detectChaseRiskV2 } from "./lib/analysis.mjs";
+import { buildEventRadarIdeas, clusterEventsByTheme, extractEvents } from "./lib/events.mjs";
+import { buildPlaybooks } from "./lib/playbooks.mjs";
+import { summarizeQuality as summarizeQualityV2 } from "./lib/data.mjs";
+import { formatMarkdown as formatMarkdownV2 } from "./lib/output.mjs";
+import {
+  getApiKey as qGetApiKey,
+  searchTools as qSearchTools,
+  executeTool as qExecuteTool,
+  resolveToolPayloadSync as qResolveToolPayloadSync,
+} from "./lib/infra/qveris-client.mjs";
+import { parseCapability as parseCapabilityV2 } from "./lib/data/parser.mjs";
+import {
+  hasCjk as hasCjkV2,
+  normalizeAliasKey as normalizeAliasKeyV2,
+  extractTickerFromText as extractTickerFromTextV2,
+  inferMarketFromSymbol as inferMarketFromSymbolV2,
+  resolveCompanyNameViaQveris as resolveCompanyNameViaQverisV2,
+  resolveRequestedSymbol as resolveRequestedSymbolV2,
+  normalizeSymbols as normalizeSymbolsV2,
+  toThsCode as toThsCodeV2,
+} from "./lib/market/resolver.mjs";
+import { hasCommand, dispatchCommand } from "./lib/core/router.mjs";
+import { formatForChat } from "./lib/output/chat/formatter.mjs";
+import { buildDecisionCard } from "./lib/output/decision-card.mjs";
 
-const BASE_URL = "https://qveris.ai/api/v1";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SKILL_ROOT = path.resolve(__dirname, "..");
@@ -67,12 +92,7 @@ function isoNow() {
 }
 
 function getApiKey() {
-  const key = process.env.QVERIS_API_KEY;
-  if (!key) {
-    console.error("Error: QVERIS_API_KEY environment variable is required.");
-    process.exit(1);
-  }
-  return key;
+  return qGetApiKey();
 }
 
 function toNumber(value) {
@@ -356,53 +376,11 @@ function updateEvolutionOnAttempt(state, meta) {
 }
 
 async function searchTools(query, limit, timeoutMs) {
-  const apiKey = getApiKey();
-  const { signal, cleanup } = timeoutSignal(timeoutMs);
-  try {
-    const res = await fetch(`${BASE_URL}/search`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query, limit }),
-      signal,
-    });
-    if (!res.ok) {
-      throw new Error(`Search failed (${res.status}): ${await res.text()}`);
-    }
-    return await res.json();
-  } finally {
-    cleanup();
-  }
+  return qSearchTools(query, limit, timeoutMs);
 }
 
 async function executeTool(toolId, searchId, parameters, maxResponseSize, timeoutMs) {
-  const apiKey = getApiKey();
-  const { signal, cleanup } = timeoutSignal(timeoutMs);
-  try {
-    const url = new URL(`${BASE_URL}/tools/execute`);
-    url.searchParams.set("tool_id", toolId);
-    const res = await fetch(url.toString(), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        search_id: searchId,
-        parameters,
-        max_response_size: maxResponseSize,
-      }),
-      signal,
-    });
-    if (!res.ok) {
-      throw new Error(`Execute failed (${res.status}): ${await res.text()}`);
-    }
-    return await res.json();
-  } finally {
-    cleanup();
-  }
+  return qExecuteTool(toolId, searchId, parameters, maxResponseSize, timeoutMs);
 }
 
 function isToolCallSuccessful(result) {
@@ -446,134 +424,113 @@ function summarizeTool(tool) {
 }
 
 function hasCjk(text) {
-  return /[\u3400-\u9FFF]/.test(String(text || ""));
+  return hasCjkV2(text);
 }
 
 function normalizeAliasKey(value) {
-  return String(value || "")
-    .trim()
-    .replace(/[（(]\s*[0-9A-Za-z._-]+\s*[)）]/g, "")
-    .replace(/\s+/g, "");
+  return normalizeAliasKeyV2(value);
 }
 
 function extractTickerFromText(value) {
-  const raw = String(value || "").trim();
-  const withSuffix = raw.match(/([0-9]{4,6}\.(?:HK|SH|SZ|SS))/i);
-  if (withSuffix?.[1]) return withSuffix[1].toUpperCase();
-  const sixDigits = raw.match(/\b([0-9]{6})\b/);
-  if (sixDigits?.[1]) return sixDigits[1];
-  const fourDigits = raw.match(/\b([0-9]{4})\b/);
-  if (fourDigits?.[1]) return fourDigits[1];
-  return null;
+  return extractTickerFromTextV2(value);
 }
 
 function inferMarketFromSymbol(value) {
-  const raw = String(value || "").trim().toUpperCase();
-  if (!raw) return "GLOBAL";
-  if (raw.endsWith(".HK") || /^[0-9]{4,5}$/.test(raw)) return "HK";
-  if (/\.(SH|SZ|SS)$/.test(raw) || /^[0-9]{6}$/.test(raw)) return "CN";
-  if (raw.endsWith(".US") || /^[A-Z]{1,6}$/.test(raw)) return "US";
-  if (hasCjk(raw)) return "CN";
-  return "GLOBAL";
+  return inferMarketFromSymbolV2(value);
 }
 
 // Dynamic company name resolution via QVeris (ths_ifind.code_converter)
 const THS_CODE_CONVERTER_TOOL_ID = "ths_ifind.code_converter.v1";
 const CODE_CONVERTER_TIMEOUT_MS = 5000;
 
-async function resolveCompanyNameViaQveris(companyName) {
-  try {
-    // First, search for the code_converter tool to get search_id
-    const searchRes = await searchTools("ths_ifind 证券代码转换 code converter", 5, CODE_CONVERTER_TIMEOUT_MS);
-    const searchId = searchRes?.search_id;
-    if (!searchId) {
-      console.error("[CodeConverter] No search_id from search");
-      return null;
-    }
-    // Execute the code_converter with secname mode and fuzzy match
-    const params = {
-      mode: "secname",
-      secname: companyName,
-      isexact: "0", // fuzzy match
-    };
-    const result = await executeTool(THS_CODE_CONVERTER_TOOL_ID, searchId, params, 20480, CODE_CONVERTER_TIMEOUT_MS);
-    if (!result?.success) {
-      console.error("[CodeConverter] Execution failed:", result);
-      return null;
-    }
-    const data = result?.result?.data;
-    if (!Array.isArray(data) || data.length === 0) {
-      console.error("[CodeConverter] No results for:", companyName);
-      return null;
-    }
-    // Extract the first matched thscode
-    const firstMatch = data[0];
-    const thscodes = firstMatch?.table?.thscode;
-    if (!Array.isArray(thscodes) || thscodes.length === 0) {
-      console.error("[CodeConverter] No thscode in result for:", companyName);
-      return null;
-    }
-    // thscodes may contain multiple codes (e.g., "300750.SZ,3750.HK,CYATY.PQ")
-    // We need to extract only the first (primary) code
-    const rawCodes = thscodes[0];
-    let resolvedSymbol = rawCodes;
-    if (typeof rawCodes === "string" && rawCodes.includes(",")) {
-      // Take only the first code (typically the primary A-share code)
-      resolvedSymbol = rawCodes.split(",")[0].trim();
-    }
-    console.error(`[CodeConverter] Resolved "${companyName}" -> "${resolvedSymbol}"`);
-    return resolvedSymbol;
-  } catch (err) {
-    console.error("[CodeConverter] Error resolving company name:", err.message);
-    return null;
+function splitCandidateCodes(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(/[,\s;；|]+/)
+    .map((x) => x.trim().toUpperCase())
+    .filter(Boolean);
+}
+
+function isCodeMatchingMarket(code, market) {
+  const c = String(code || "").toUpperCase();
+  if (!c) return false;
+  if (market === "HK") return /\.HK$/.test(c) || /^\d{4,5}$/.test(c);
+  if (market === "CN") return /\.(SH|SZ|SS)$/.test(c) || /^\d{6}$/.test(c);
+  if (market === "US") return /^[A-Z]{1,6}(\.US)?$/.test(c);
+  return true;
+}
+
+function scoreCandidateCode(code, preferredMarket) {
+  const c = String(code || "").toUpperCase();
+  if (!c) return -999;
+  let score = 0;
+  if (isCodeMatchingMarket(c, preferredMarket)) score += 100;
+  if (preferredMarket === "HK") {
+    if (/^\d{4,5}\.HK$/.test(c)) score += 40;
+    if (/^\d{4,5}$/.test(c)) score += 20;
+  } else if (preferredMarket === "CN") {
+    if (/^\d{6}\.(SH|SZ|SS)$/.test(c)) score += 40;
+    if (/^\d{6}$/.test(c)) score += 20;
+  } else if (preferredMarket === "US") {
+    if (/^[A-Z]{1,6}$/.test(c)) score += 35;
+    if (/^[A-Z]{1,6}\.US$/.test(c)) score += 25;
+  } else if (/\.(HK|SH|SZ|SS|US)$/.test(c) || /^[A-Z]{1,6}$/.test(c)) {
+    score += 10;
   }
+  if (/\.PQ$/.test(c)) score -= 30;
+  return score;
+}
+
+function normalizeResolvedCode(code, preferredMarket) {
+  const c = String(code || "").toUpperCase();
+  if (!c) return null;
+  if (preferredMarket === "HK" && /^\d{4,5}$/.test(c)) return `${c.padStart(4, "0")}.HK`;
+  if (preferredMarket === "CN" && /^\d{6}$/.test(c)) return c.startsWith("6") ? `${c}.SH` : `${c}.SZ`;
+  if (preferredMarket === "US" && /^[A-Z]{1,6}\.US$/.test(c)) return c.replace(/\.US$/, "");
+  return c;
+}
+
+function generateResolverNameVariants(companyName, preferredMarket = "GLOBAL") {
+  const base = String(companyName || "").trim();
+  if (!base) return [];
+  const variants = new Set([base]);
+  const normalized = base
+    .replace(/(集团|控股|股份|有限责任公司|有限公司)$/g, "")
+    .trim();
+  if (normalized && normalized !== base) variants.add(normalized);
+  if (preferredMarket === "HK") {
+    const seed = [...variants];
+    for (const v of seed) {
+      variants.add(`${v}-W`);
+    }
+  }
+  return [...variants];
+}
+
+function extractBestCodeFromConverterRows(rows, preferredMarket) {
+  const candidates = [];
+  for (const row of rows || []) {
+    const thscodeValues = row?.table?.thscode;
+    if (!Array.isArray(thscodeValues)) continue;
+    for (const item of thscodeValues) {
+      for (const code of splitCandidateCodes(item)) {
+        candidates.push(code);
+      }
+    }
+  }
+  if (candidates.length === 0) return null;
+  const unique = [...new Set(candidates)];
+  unique.sort((a, b) => scoreCandidateCode(b, preferredMarket) - scoreCandidateCode(a, preferredMarket));
+  return normalizeResolvedCode(unique[0], preferredMarket);
+}
+
+async function resolveCompanyNameViaQveris(companyName, preferredMarket = "GLOBAL") {
+  return resolveCompanyNameViaQverisV2(companyName, preferredMarket);
 }
 
 async function resolveRequestedSymbol(input, preferredMarket = "GLOBAL") {
-  const original = String(input || "").trim();
-  const aliasKey = normalizeAliasKey(original);
-  const alias = COMPANY_SYMBOL_ALIASES[aliasKey];
-  if (alias) {
-    return {
-      original,
-      symbol: alias.symbol,
-      market: preferredMarket !== "GLOBAL" ? preferredMarket : alias.market,
-      resolvedBy: "alias",
-    };
-  }
-
-  const extractedTicker = extractTickerFromText(original);
-  if (extractedTicker) {
-    const market = preferredMarket !== "GLOBAL" ? preferredMarket : inferMarketFromSymbol(extractedTicker);
-    return {
-      original,
-      symbol: extractedTicker,
-      market,
-      resolvedBy: "ticker-extract",
-    };
-  }
-
-  // If input looks like a Chinese company name (has CJK chars, no digits), try dynamic resolution
-  if (hasCjk(original) && !/[0-9]/.test(original)) {
-    const dynamicSymbol = await resolveCompanyNameViaQveris(original);
-    if (dynamicSymbol) {
-      const market = preferredMarket !== "GLOBAL" ? preferredMarket : inferMarketFromSymbol(dynamicSymbol);
-      return {
-        original,
-        symbol: dynamicSymbol,
-        market,
-        resolvedBy: "qveris-code-converter",
-      };
-    }
-  }
-
-  const inferred = preferredMarket !== "GLOBAL" ? preferredMarket : inferMarketFromSymbol(original);
-  return {
-    original,
-    symbol: original,
-    market: inferred,
-    resolvedBy: hasCjk(original) ? "cjk-default" : "input",
-  };
+  return resolveRequestedSymbolV2(input, preferredMarket, COMPANY_SYMBOL_ALIASES);
 }
 
 function prioritizeCandidatesByMarket(candidates, capability, market) {
@@ -669,56 +626,11 @@ function marketCapabilityBoost(tool, capability, market) {
 }
 
 function normalizeSymbols(input, market) {
-  const raw = (input || "").trim();
-  if (!raw) return [];
-  const candidates = new Set([raw.toUpperCase()]);
-  const upper = raw.toUpperCase();
-
-  if (market === "US") {
-    candidates.add(upper.replace(/\.US$/, ""));
-    candidates.add(`${upper.replace(/\.US$/, "")}.US`);
-  } else if (market === "HK") {
-    const core = upper.replace(/\.HK$/, "").replace(/^0+/, "") || "0";
-    candidates.add(`${core}.HK`);
-    candidates.add(`${core.padStart(4, "0")}.HK`);
-    candidates.add(core.padStart(4, "0"));
-  } else if (market === "CN") {
-    const core = upper.replace(/\.(SS|SH|SZ)$/, "");
-    candidates.add(`${core}.SS`);
-    candidates.add(`${core}.SH`);
-    candidates.add(`${core}.SZ`);
-  } else {
-    candidates.add(`${upper}.US`);
-    if (/^\d+$/.test(upper)) {
-      candidates.add(`${upper}.HK`);
-      candidates.add(`${upper}.SS`);
-      candidates.add(`${upper}.SZ`);
-    }
-  }
-
-  return [...candidates];
+  return normalizeSymbolsV2(input, market);
 }
 
 function toThsCode(symbol, market) {
-  const upper = (symbol || "").toUpperCase();
-  if (upper.includes(".")) return upper;
-  if (market === "CN") {
-    if (upper.startsWith("6")) return `${upper}.SH`;
-    return `${upper}.SZ`;
-  }
-  if (market === "HK") {
-    return `${upper.replace(/^0+/, "").padStart(4, "0")}.HK`;
-  }
-  return upper;
-}
-
-function extractJSONFromTruncatedContent(value) {
-  if (!value || typeof value !== "string") return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
+  return toThsCodeV2(symbol, market);
 }
 
 function parseDateLike(value) {
@@ -921,7 +833,7 @@ function pickTechnicalData(raw) {
 function pickSentimentData(raw) {
   const payload = raw?.result || raw || {};
   const data = payload?.data || payload;
-  const content = data?.truncated_content ? extractJSONFromTruncatedContent(data.truncated_content) : data;
+  const content = qResolveToolPayloadSync(raw).content ?? data;
   const hits = content?.data?.hits || content?.hits || [];
   if (Array.isArray(hits)) {
     const latest = hits[0]?.source || hits[0] || null;
@@ -963,7 +875,7 @@ function pickSentimentData(raw) {
 function pickXSentimentData(raw) {
   const payload = raw?.result || raw || {};
   const data = payload?.data ?? payload;
-  const content = data?.truncated_content ? extractJSONFromTruncatedContent(data.truncated_content) : data;
+  const content = qResolveToolPayloadSync(raw).content ?? data;
 
   let posts = [];
   if (Array.isArray(content)) posts = content;
@@ -1947,12 +1859,36 @@ async function runSingleAnalysis(symbol, options) {
     await enrichCnHkFundamentals(selectedSymbol, effectiveMarket, output, options);
   }
 
-  const quality = summarizeQuality(output);
+  const quality = summarizeQualityV2(output);
   const benchmarks = await loadSectorBenchmarks();
-  const scorecard = buildScorecard(output, benchmarks, effectiveMarket);
+  const scorecard = buildScorecardV2(output, benchmarks, effectiveMarket);
   const safetyMargin = calcSafetyMargin(output, scorecard, benchmarks, effectiveMarket);
-  const chaseRisk = detectChaseRisk(output);
+  const chaseRisk = detectChaseRiskV2(output);
   const recommendation = generateRecommendation(scorecard, safetyMargin, chaseRisk);
+  const financialQuality = buildFinancialQuality(output, benchmarks, effectiveMarket);
+  const valuationFrame = buildValuationFrame(output, scorecard, benchmarks, effectiveMarket);
+  const events = options.eventRadar
+    ? extractEvents(output.sentiment?.parsed, output.x_sentiment?.parsed, {
+        maxEvents: Math.max(5, Math.min(12, Number(options.eventWindowDays || 7))),
+      })
+    : [];
+  const eventRadar = {
+    view: options.eventView || "timeline",
+    events,
+    themes: (options.eventView || "timeline") === "theme" ? clusterEventsByTheme(events) : [],
+    ideas: buildEventRadarIdeas(events, selectedSymbol, effectiveMarket),
+    universe: options.eventUniverse || "global",
+  };
+  const thesis = buildThesis(output, effectiveMarket, scorecard, valuationFrame, financialQuality, eventRadar);
+  const playbooks = buildPlaybooks(
+    { scorecard, valuationFrame, chaseRisk, thesis, eventRadar },
+    {
+      horizon: options.horizon,
+      risk: options.risk,
+      style: options.style,
+      actionable: options.actionable,
+    },
+  );
   evolutionSummary.new_tools_learned = [...new Set(options.newlyLearnedTools || [])];
   return {
     symbol: selectedSymbol,
@@ -1965,12 +1901,18 @@ async function runSingleAnalysis(symbol, options) {
       safetyMargin,
       chaseRisk,
       recommendation,
+      financialQuality,
+      valuationFrame,
+      thesis,
+      eventRadar,
+      playbooks,
     },
     evolution: evolutionSummary,
     runtime: {
       includeSourceUrls: Boolean(options.includeSourceUrls),
       evidenceMode: Boolean(options.evidenceMode),
       evolutionEnabled: Boolean(options.evolutionEnabled),
+      summaryOnly: Boolean(options.summaryOnly),
       resolvedInput: {
         original: resolvedInput.original,
         symbol: resolvedInput.symbol,
@@ -1978,16 +1920,15 @@ async function runSingleAnalysis(symbol, options) {
         resolvedBy: resolvedInput.resolvedBy,
       },
     },
+    meta: {
+      note: "Analysis delegated to OpenClaw LLM via SKILL.md Single Stock Analysis Guide",
+      guide: "Single Stock Analysis Guide",
+    },
   };
 }
 
 function parseCapability(capability, raw) {
-  if (capability === "quote") return pickQuoteData(raw);
-  if (capability === "fundamentals") return pickFundamentalData(raw);
-  if (capability === "technicals") return pickTechnicalData(raw);
-  if (capability === "sentiment") return pickSentimentData(raw);
-  if (capability === "x_sentiment") return pickXSentimentData(raw);
-  return raw;
+  return parseCapabilityV2(capability, raw);
 }
 
 function sanitizeParsedCapability(parsed, options) {
@@ -2159,6 +2100,16 @@ function parseArgs(argv) {
     includeSourceUrls: false,
     evidenceMode: false,
     evolutionEnabled: true,
+    actionable: false,
+    skipQuestionnaire: false,
+    summaryOnly: false,
+    eventRadar: true,
+    eventWindowDays: 7,
+    eventUniverse: "global",
+    eventView: "timeline",
+    horizon: null,
+    risk: null,
+    style: null,
   };
 
   for (let i = 1; i < args.length; i++) {
@@ -2168,14 +2119,91 @@ function parseArgs(argv) {
     else if (key === "--market" && i + 1 < args.length) parsed.market = args[++i].toUpperCase();
     else if (key === "--mode" && i + 1 < args.length) parsed.mode = args[++i];
     else if (key === "--format" && i + 1 < args.length) parsed.format = args[++i];
+    else if (key === "--type" && i + 1 < args.length) parsed.type = args[++i];
+    else if (key === "--action" && i + 1 < args.length) parsed.watchAction = args[++i];
+    else if (key === "--bucket" && i + 1 < args.length) parsed.bucket = args[++i];
+    else if (key === "--max-items" && i + 1 < args.length) parsed.maxItems = Number(args[++i]) || 8;
     else if (key === "--limit" && i + 1 < args.length) parsed.limit = Number(args[++i]) || 10;
     else if (key === "--max-size" && i + 1 < args.length) parsed.maxSize = Number(args[++i]) || 30000;
     else if (key === "--timeout" && i + 1 < args.length) parsed.timeoutMs = (Number(args[++i]) || 25) * 1000;
     else if (key === "--include-source-urls") parsed.includeSourceUrls = true;
     else if (key === "--evidence") parsed.evidenceMode = true;
     else if (key === "--no-evolution") parsed.evolutionEnabled = false;
+    else if (key === "--actionable") parsed.actionable = true;
+    else if (key === "--skip-questionnaire") parsed.skipQuestionnaire = true;
+    else if (key === "--summary-only") parsed.summaryOnly = true;
+    else if (key === "--event-radar") parsed.eventRadar = true;
+    else if (key === "--no-event-radar") parsed.eventRadar = false;
+    else if (key === "--event-window-days" && i + 1 < args.length) parsed.eventWindowDays = Number(args[++i]) || 7;
+    else if (key === "--event-universe" && i + 1 < args.length) parsed.eventUniverse = String(args[++i]).toLowerCase();
+    else if (key === "--event-view" && i + 1 < args.length) parsed.eventView = String(args[++i]).toLowerCase();
+    else if (key === "--horizon" && i + 1 < args.length) parsed.horizon = String(args[++i]).toLowerCase();
+    else if (key === "--risk" && i + 1 < args.length) parsed.risk = String(args[++i]).toLowerCase();
+    else if (key === "--style" && i + 1 < args.length) parsed.style = String(args[++i]).toLowerCase();
   }
   return parsed;
+}
+
+function formatRoutedMarkdown(result) {
+  if (!result || typeof result !== "object") return String(result ?? "");
+  if (result.mode === "watch") {
+    const lines = ["# Watchlist 管理", `- 操作: ${result.action}`];
+    const holdings = result.watchlist?.holdings || [];
+    const watchlist = result.watchlist?.watchlist || [];
+    lines.push("", "## 持仓");
+    if (holdings.length === 0) lines.push("- (空)");
+    for (const item of holdings) lines.push(`- ${item.symbol} (${item.market})`);
+    lines.push("", "## 关注");
+    if (watchlist.length === 0) lines.push("- (空)");
+    for (const item of watchlist) lines.push(`- ${item.symbol} (${item.market})`);
+    return lines.join("\n");
+  }
+  if (result.mode === "brief") {
+    const lines = [`# ${result.type === "evening" ? "晚报" : "早报"}`, `- 生成时间: ${result.generatedAt}`];
+    lines.push(`- 覆盖: 持仓 ${result.coverage?.holdings || 0} | 关注 ${result.coverage?.watchlist || 0}`);
+    lines.push(`- 市场情绪: ${result.marketOverview?.sentiment || "unknown"}`);
+    lines.push("", "## 市场概览");
+    for (const idx of result.marketOverview?.indices || []) {
+      if (idx.error) lines.push(`- ${idx.name}(${idx.symbol}): 数据失败 - ${idx.error}`);
+      else lines.push(`- ${idx.name}(${idx.symbol}): ${idx.price ?? "N/A"} / ${idx.percentChange ?? "N/A"}%`);
+    }
+    lines.push("", "## 热点摘要");
+    for (const item of result.highlights || []) {
+      const tickerStr = item.tickers?.length ? ` | ${item.tickers.join(", ")}` : "";
+      const categoryStr = item.category ? ` [${item.category}]` : "";
+      lines.push(`- ${item.title}${categoryStr}${tickerStr}`);
+      lines.push(`  - 来源: ${item.source}${item.publishTime ? ` | ${item.publishTime}` : ""}`);
+    }
+    lines.push("", "## 标的摘要");
+    for (const row of result.reports || []) {
+      if (row.error) lines.push(`- ${row.symbol} (${row.market}): 失败 - ${row.error}`);
+      else lines.push(`- ${row.symbol} (${row.market}): ${row.price ?? "N/A"} / ${row.percentChange ?? "N/A"}% / ${row.grade} / ${row.signal} / 风险 ${row.risk}`);
+    }
+    lines.push("", "---");
+    lines.push("*分析建议：请 OpenClaw 根据 SKILL.md 中的 Daily Brief Analysis Guide 输出专业且精炼的早晚报（包含投资逻辑与操作建议）*");
+    return lines.join("\n");
+  }
+  if (result.mode === "radar") {
+    const lines = ["# 行业热点雷达", `- 生成时间: ${result.generatedAt}`, `- 热点数: ${result.topicCount || 0}`];
+    lines.push(`- 数据源数: ${result.meta?.sourceCount || 0}`);
+    lines.push("", "## 热点详情");
+    for (const t of result.topics || []) {
+      const tickerStr = t.tickers?.length ? ` | 相关: ${t.tickers.join(", ")}` : "";
+      const sentimentStr = t.sentiment != null ? ` | 情绪: ${t.sentiment.toFixed(2)}` : "";
+      const categoryStr = t.category ? ` | 分类: ${t.category}` : "";
+      lines.push(`- **${t.title || "未命名主题"}**`);
+      lines.push(`  - 来源: ${t.source || "unknown"}${categoryStr}${tickerStr}${sentimentStr}`);
+      if (t.publishTime) lines.push(`  - 时间: ${t.publishTime}`);
+    }
+    lines.push("", "## 数据源状态");
+    for (const s of result.meta?.sourceStats || []) {
+      lines.push(`- ${s.source}: ${s.ok ? "OK" : "FAIL"} / count=${s.count}`);
+    }
+    lines.push("", "---");
+    lines.push("*分析建议：请 OpenClaw 根据 SKILL.md 中的 Hot Topic Analysis Guide 进行主题聚合与投资分析*");
+    return lines.join("\n");
+  }
+  return JSON.stringify(result, null, 2);
 }
 
 function printHelp() {
@@ -2188,12 +2216,28 @@ Usage:
 Options:
   --market US|HK|CN|GLOBAL   default GLOBAL
   --mode basic|fundamental|technical|comprehensive   default comprehensive
-  --format markdown|json     default markdown
+  --format markdown|json|chat default markdown
+  --action list|add|remove   for watch command
+  --bucket holdings|watchlist for watch command
+  --type morning|evening     for brief command
+  --max-items N              max symbols in brief
   --limit N                  search results per capability (default 10)
   --max-size N               max response size bytes (default 30000)
   --timeout N                timeout seconds (default 25)
   --include-source-urls      include provider full-content URLs in report
   --evidence                 include full parsed/raw evidence sections in report
+  --horizon short|mid|long   investment horizon preference
+  --risk low|mid|high        risk preference
+  --style value|balanced|growth|trading
+                             preferred investment style
+  --actionable               include execution-oriented strategy rules
+  --skip-questionnaire       skip default preference questionnaire
+  --summary-only             render summary-first compact report
+  --event-window-days N      event window in days (default 7)
+  --event-universe global|same_market
+                             event radar universe scope
+  --event-view timeline|theme
+                             event output style
   --no-evolution             disable reading/writing .evolution state
   --help                     show this message
 `);
@@ -2208,13 +2252,52 @@ async function main() {
   args.evolutionState = args.evolutionEnabled ? await loadEvolutionState() : null;
   args.newlyLearnedTools = [];
 
+  if (hasCommand(args.command)) {
+    const result = await dispatchCommand(args.command, args, {
+      analyzeSymbol: async (symbol, runArgs) => runSingleAnalysis(symbol, runArgs),
+    });
+    if (args.format === "json") {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+    if (args.format === "chat" && result?.mode === "brief" && Array.isArray(result.reports)) {
+      const chatReports = result.reports.filter((x) => !x.error).map((x) => ({
+        symbol: x.symbol,
+        market: x.market,
+        analysis: { scorecard: { grade: x.grade }, recommendation: { signal: x.signal }, chaseRisk: { risk: x.risk } },
+      }));
+      console.log(
+        chatReports
+          .map((r) => `${buildDecisionCard(r).asText}`)
+          .join("\n"),
+      );
+      return;
+    }
+    console.log(formatRoutedMarkdown(result));
+    return;
+  }
+
   if (args.command === "analyze") {
     if (!args.symbol) throw new Error("analyze requires --symbol");
+    const preferences = parsePreferences(args);
+    if (!args.skipQuestionnaire && !preferences.hasAny) {
+      const questionnaireResult = {
+        questionnaire: buildQuestionnaire(),
+        runtime: {
+          summaryOnly: Boolean(args.summaryOnly),
+          resolvedInput: { original: args.symbol },
+        },
+      };
+      if (args.format === "json") console.log(JSON.stringify(questionnaireResult, null, 2));
+      else console.log(formatMarkdownV2(questionnaireResult));
+      return;
+    }
     const result = await runSingleAnalysis(args.symbol, args);
     result.evolution.new_tools_learned = [...new Set(args.newlyLearnedTools)];
     if (args.evolutionEnabled && args.evolutionState) await saveEvolutionState(args.evolutionState);
     if (args.format === "json") console.log(JSON.stringify(result, null, 2));
-    else console.log(formatMarkdown(result));
+    else if (args.format === "chat") console.log(JSON.stringify(formatForChat(result), null, 2));
+    else console.log(formatMarkdownV2(result));
     return;
   }
 
@@ -2239,10 +2322,26 @@ async function main() {
           2,
         ),
       );
+    } else if (args.format === "chat") {
+      console.log(
+        JSON.stringify(
+          {
+            mode: "compare-chat",
+            reports: reports.map((r) => ({
+              symbol: r.symbol,
+              market: r.market,
+              decisionCard: buildDecisionCard(r),
+              chat: formatForChat(r),
+            })),
+          },
+          null,
+          2,
+        ),
+      );
     } else {
       for (const report of reports) {
         report.evolution.new_tools_learned = [...new Set(args.newlyLearnedTools)];
-        console.log(formatMarkdown(report));
+        console.log(formatMarkdownV2(report));
         console.log("\n---\n");
       }
     }

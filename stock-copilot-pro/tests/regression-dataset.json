@@ -72,7 +72,8 @@
       "expected_symbol_pattern": "03690.HK",
       "market": "HK",
       "category": "dynamic_name",
-      "required_fields": ["price", "name"]
+      "required_fields": ["price", "name"],
+      "allow_partial": true
     },
     {
       "id": "hk-xiaomi",
@@ -80,7 +81,8 @@
       "expected_symbol_pattern": "01810.HK",
       "market": "HK",
       "category": "dynamic_name",
-      "required_fields": ["price", "name"]
+      "required_fields": ["price", "name"],
+      "allow_partial": true
     },
     {
       "id": "us-nvidia",

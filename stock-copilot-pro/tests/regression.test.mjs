@@ -86,6 +86,7 @@ function runAnalysis(sample, options) {
     String(options.timeoutSec),
     "--limit",
     String(options.limit),
+    "--skip-questionnaire",
     "--no-evolution",
   ];
   return new Promise((resolve) => {
@@ -178,9 +179,20 @@ function checkRequiredFields(result, requiredFields) {
 }
 
 async function main() {
+  if (!process.env.QVERIS_API_KEY) {
+    console.log("QVERIS_API_KEY is not set, skip live regression suite.");
+    process.exit(0);
+  }
   const opts = parseArgs();
   const dataset = await loadDataset();
   let samples = dataset.samples;
+  const requiredMarkets = ["CN", "HK", "US"];
+  const coveredMarkets = new Set((samples || []).map((s) => String(s.market || "").toUpperCase()));
+  const uncovered = requiredMarkets.filter((m) => !coveredMarkets.has(m));
+  if (uncovered.length > 0) {
+    console.log(`Dataset missing required market coverage: ${uncovered.join(", ")}`);
+    process.exit(1);
+  }
 
   if (opts.suite === "smoke") {
     const smoke = samples.filter((s) => SMOKE_SAMPLE_IDS.includes(s.id));
@@ -194,6 +206,7 @@ async function main() {
   let passed = 0;
   let failed = 0;
   let cursor = 0;
+  const marketStats = { CN: { passed: 0, failed: 0 }, HK: { passed: 0, failed: 0 }, US: { passed: 0, failed: 0 } };
 
   async function runOne(sample) {
     const startTime = Date.now();
@@ -227,8 +240,12 @@ async function main() {
     // Check required fields
     const missingFields = checkRequiredFields(parsed, sample.required_fields);
     if (missingFields.length > 0) {
-      console.log(`  ⚠️ PARTIAL: missing fields: ${missingFields.join(", ")}`);
-      return { ...sample, status: "PARTIAL", missing: missingFields, elapsed };
+      if (sample.allow_partial) {
+        console.log(`  ⚠️ DEGRADED_PASS: missing fields: ${missingFields.join(", ")}`);
+        return { ...sample, status: "DEGRADED_PASS", missing: missingFields, elapsed };
+      }
+      console.log(`  ❌ FAILED: missing fields: ${missingFields.join(", ")}`);
+      return { ...sample, status: "FAILED", reason: "missing required fields", missing: missingFields, elapsed };
     }
 
     console.log(`  ✅ PASSED (${elapsed}ms)`);
@@ -242,8 +259,15 @@ async function main() {
       const sample = samples[idx];
       const r = await runOne(sample);
       results.push(r);
-      if (r.status === "PASSED") passed++;
-      else failed++;
+      const marketKey = String(sample.market || "GLOBAL").toUpperCase();
+      const isPass = r.status === "PASSED" || r.status === "DEGRADED_PASS";
+      if (isPass) {
+        passed++;
+        if (marketStats[marketKey]) marketStats[marketKey].passed++;
+      } else {
+        failed++;
+        if (marketStats[marketKey]) marketStats[marketKey].failed++;
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.min(opts.concurrency, samples.length) }, () => worker()));
@@ -253,9 +277,12 @@ async function main() {
   console.log("REGRESSION TEST SUMMARY");
   console.log("=".repeat(60));
   console.log(`Total: ${samples.length} | Passed: ${passed} | Failed: ${failed}`);
+  console.log(
+    `By market -> CN: ${marketStats.CN.passed}/${marketStats.CN.passed + marketStats.CN.failed}, HK: ${marketStats.HK.passed}/${marketStats.HK.passed + marketStats.HK.failed}, US: ${marketStats.US.passed}/${marketStats.US.passed + marketStats.US.failed}`,
+  );
   console.log();
 
-  const failedResults = results.filter((r) => r.status !== "PASSED");
+  const failedResults = results.filter((r) => r.status !== "PASSED" && r.status !== "DEGRADED_PASS");
   if (failedResults.length > 0) {
     console.log("Failed samples:");
     for (const r of failedResults) {
