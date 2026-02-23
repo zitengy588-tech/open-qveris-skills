@@ -1,6 +1,24 @@
 ---
 name: news-briefing
 description: News briefing and WeChat article search skill for OpenClaw. Aggregates news from multiple sources (caidazi, xiaosu, X/Twitter) to provide personalized news briefings, topic tracking, and article search. Use when users need news updates, WeChat article search, topic monitoring, or daily news briefings.
+env:
+  - QVERIS_API_KEY
+credentials:
+  required:
+    - QVERIS_API_KEY
+  primary_env: QVERIS_API_KEY
+  scope: read-only
+  endpoint: https://qveris.ai/api/v1
+network:
+  outbound_hosts:
+    - qveris.ai
+auto_invoke: true
+source: https://qveris.ai
+examples:
+  - "Generate morning news briefing"
+  - "Search for articles about artificial intelligence"
+  - "Track trending topics"
+  - "Monitor news about Tesla"
 ---
 
 # News Briefing
