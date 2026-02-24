@@ -1,0 +1,38 @@
+{
+  "env": {
+    "SILICONFLOW_API_KEY": "${SILICONFLOW_API_KEY}"
+  },
+  "skills": {
+    "load": {
+      "watch": true,
+      "watchDebounceMs": 250,
+      "extraDirs": [
+        "/workspace/stock-copilot-pro",
+        "/workspace/qverisai"
+      ]
+    }
+  },
+  "models": {
+    "providers": {
+      "siliconflow": {
+        "baseUrl": "https://api.siliconflow.cn/v1",
+        "apiKey": "${SILICONFLOW_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          { "id": "Pro/moonshotai/Kimi-K2.5", "name": "Kimi K2.5 Pro" }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "siliconflow/Pro/moonshotai/Kimi-K2.5"
+      },
+      "sandbox": {
+        "mode": "off"
+      },
+      "timeoutSeconds": 420
+    }
+  }
+}

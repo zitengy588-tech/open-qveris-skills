@@ -20,6 +20,24 @@ This repository hosts **QVeris** ([`qveris.ai`](https://qveris.ai)) related bot/
 - Skills that call QVeris APIs typically require:
   - `QVERIS_API_KEY` (get one from [`qveris.ai`](https://qveris.ai))
 
+## Local development (not part of published skill package)
+
+Local integration files live under `dev-infra/` and are intentionally kept
+outside skill folders such as `stock-copilot-pro/`.
+
+Reuse repository root `.env.local` for all local workflows (`skill-dev` and
+optional `openclaw` compose profile). No extra `.env` files are required under
+`dev-infra/`.
+
+- Bring up dev container: `make up`
+- Check runtime: `make check`
+- Run smoke regression (`allow-degraded` for live API variance): `make smoke`
+- Bring up OpenClaw too: `make up-full`
+- Stop containers: `make down`
+
+Repository root `.env.local` is git-ignored by default to avoid accidental key
+commits.
+
 ## Contributing
 
 - Add a new folder for a new skill (or improve an existing one).

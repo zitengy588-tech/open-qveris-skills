@@ -1,0 +1,16 @@
+{
+  "name": "open-qveris-skills-dev",
+  "dockerComposeFile": "../dev-infra/stock-copilot-pro/docker-compose.yml",
+  "service": "skill-dev",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "devuser",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "davidanson.vscode-markdownlint"
+      ]
+    }
+  }
+}

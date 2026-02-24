@@ -1,0 +1,2 @@
+Use stock-copilot-pro to analyze AAPL with a concise comprehensive report.
+Include: core thesis, key risks, and one actionable next step.

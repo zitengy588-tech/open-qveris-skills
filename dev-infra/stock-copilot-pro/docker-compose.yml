@@ -1,0 +1,42 @@
+services:
+  skill-dev:
+    build:
+      context: ../base
+      dockerfile: Dockerfile
+    container_name: stock-copilot-pro-skill-dev
+    working_dir: /workspace/stock-copilot-pro
+    volumes:
+      - ../../:/workspace
+    env_file:
+      - ../../.env.local
+    tty: true
+    stdin_open: true
+
+  openclaw:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:main}
+    container_name: stock-copilot-pro-openclaw
+    user: "0:0"
+    depends_on:
+      - skill-dev
+    ports:
+      - "18789:18789"
+    volumes:
+      - ../../:/workspace
+      - ../openclaw/openclaw.dev.json:/tmp/openclaw.dev.json:ro
+      - openclaw_home:/root
+    env_file:
+      - ../../.env.local
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mkdir -p /root/.openclaw
+        cp /tmp/openclaw.dev.json /root/.openclaw/openclaw.json
+        exec node /app/openclaw.mjs gateway --allow-unconfigured
+    tty: true
+    stdin_open: true
+    profiles:
+      - openclaw
+
+volumes:
+  openclaw_home:
