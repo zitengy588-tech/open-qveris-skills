@@ -12,6 +12,19 @@ This repository hosts **QVeris** ([`qveris.ai`](https://qveris.ai)) related bot/
   - Use it as a starting point: you can modify it (or ask your AI to modify it) to create **novel, useful skills** tailored to your workflow.
 - `stock-copilot-pro/`: A **standalone global stock analysis skill** for ClawHub/OpenClaw style agents.
   - Includes multi-source routing (quote, fundamentals, technicals, sentiment), quality checks, and structured reports.
+- **Planned skills**: Development and testing are currently underway.
+  - `exchange-rate/` – Real-time forex rate and amount conversion.
+  - `stock-analyzer/` – A-share/global quote, fundamentals, history, smart stock picking.
+  - `crypto-tracker/` – Crypto price, markets, conversion (CoinMarketCap, CoinGecko).
+  - `news-briefing/` – News and WeChat article search (caidazi, xiaosu, X news).
+  - `location-service/` – POI and IP location (Amap, Baidu Map).
+  - `movie-guide/` – Movie/TV details and reviews (IMDb, NYT).
+  - `developer-tools/` – IP lookup and geo.
+  - `content-discovery/` – Taobao, Xiaohongshu, Kuaishou search.
+  - `weather-alerts/` – Weather alerts and air quality (AQI) by location.
+  - `term-translation/` – Term/phrase translation (e.g. Data.gov).
+  - `food-nutrition/` – Food search and nutrition (USDA FoodData Central).
+  - `sports-score/` – Sports leagues, games, standings (API-Sports, Api-Football).
 
 ## Getting started
 
