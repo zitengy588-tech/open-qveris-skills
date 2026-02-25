@@ -12,9 +12,28 @@ credentials:
   primary: QVERIS_API_KEY
   scope: read-only
   endpoint: https://qveris.ai/api/v1
+runtime:
+  language: nodejs
+  node: ">=18"
+install:
+  mechanism: local-skill-execution
+  external_installer: false
+  package_manager_required: false
+persistence:
+  writes_within_skill_dir:
+    - config/watchlist.json
+    - .evolution/tool-evolution.json
+  writes_outside_skill_dir: false
+security:
+  full_content_file_url:
+    enabled: true
+    allowed_hosts:
+      - qveris.ai
+    protocol: https
 network:
   outbound_hosts:
     - qveris.ai
+metadata: {"openclaw":{"requires":{"env":["QVERIS_API_KEY"]},"primaryEnv":"QVERIS_API_KEY","homepage":"https://qveris.ai"}}
 auto_invoke: true
 source: https://qveris.ai
 examples:
