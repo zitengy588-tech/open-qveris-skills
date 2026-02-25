@@ -1,0 +1,16 @@
+# User-specific config (only .example files are committed)
+config/profile.json
+config/goals.json
+config/watchlist.json
+config/content-calendar.json
+
+# Runtime evolution state
+.evolution/reflections.json
+.evolution/strategy-state.json
+
+# OS artifacts
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
