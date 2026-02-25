@@ -1,0 +1,2 @@
+Use stock-copilot-pro to analyze symbol: INVALID_SYMBOL_1234.
+If input is invalid, return a graceful error with suggested correction format.

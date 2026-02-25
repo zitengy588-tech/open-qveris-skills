@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-02-16T10:55:53.685Z",
+  "updated_at": "2026-02-22T14:43:58.767Z",
   "tools": {
     "finnhub_io_api.stock.quote": {
       "tool_id": "finnhub_io_api.stock.quote",
@@ -8,12 +8,13 @@
       "first_seen_at": "2026-02-15T09:47:32.971Z",
       "last_success_at": "2026-02-15T09:53:26.668Z",
       "success_count": 3,
-      "fail_count": 7,
+      "fail_count": 15,
       "avg_elapsed_ms": 1354,
       "markets": [
         "CN",
         "US",
-        "GLOBAL"
+        "GLOBAL",
+        "HK"
       ],
       "param_templates": {},
       "sample_successful_params": null,
@@ -48,14 +49,15 @@
       "tool_id": "twelvedata.quote.retrieve.v1.affbefe3",
       "provider": "twelvedata",
       "first_seen_at": "2026-02-15T09:27:04.326Z",
-      "last_success_at": "2026-02-16T10:55:39.024Z",
-      "success_count": 16,
-      "fail_count": 8,
-      "avg_elapsed_ms": 955,
+      "last_success_at": "2026-02-22T14:17:44.676Z",
+      "success_count": 41,
+      "fail_count": 21,
+      "avg_elapsed_ms": 1066,
       "markets": [
         "US",
         "CN",
-        "GLOBAL"
+        "GLOBAL",
+        "HK"
       ],
       "param_templates": {
         "US": {
@@ -63,7 +65,7 @@
         }
       },
       "sample_successful_params": {
-        "symbol": "AAPL"
+        "symbol": "MSFT"
       },
       "last_error": null
     },
@@ -89,7 +91,7 @@
       "first_seen_at": "2026-02-15T03:22:49.607Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 26,
+      "fail_count": 33,
       "avg_elapsed_ms": 0,
       "markets": [
         "US",
@@ -107,7 +109,7 @@
       "first_seen_at": "2026-02-15T03:22:49.176Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 20,
+      "fail_count": 25,
       "avg_elapsed_ms": 0,
       "markets": [
         "US",
@@ -139,10 +141,10 @@
       "tool_id": "alphavantage.fundamentals.income_statement.retrieve.v1.7aca3c4a",
       "provider": "alphavantage",
       "first_seen_at": "2026-02-15T03:22:51.247Z",
-      "last_success_at": "2026-02-15T12:34:18.406Z",
-      "success_count": 27,
-      "fail_count": 6,
-      "avg_elapsed_ms": 920,
+      "last_success_at": "2026-02-22T14:17:50.860Z",
+      "success_count": 52,
+      "fail_count": 19,
+      "avg_elapsed_ms": 1060,
       "markets": [
         "US",
         "HK",
@@ -157,7 +159,7 @@
       },
       "sample_successful_params": {
         "function": "OVERVIEW",
-        "symbol": "TSLA"
+        "symbol": "MSFT"
       },
       "last_error": null
     },
@@ -240,11 +242,12 @@
       "first_seen_at": "2026-02-15T03:22:52.579Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 7,
+      "fail_count": 18,
       "avg_elapsed_ms": 0,
       "markets": [
         "US",
-        "GLOBAL"
+        "GLOBAL",
+        "HK"
       ],
       "param_templates": {},
       "sample_successful_params": null,
@@ -256,11 +259,12 @@
       "first_seen_at": "2026-02-15T03:22:53.193Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 7,
+      "fail_count": 18,
       "avg_elapsed_ms": 0,
       "markets": [
         "US",
-        "GLOBAL"
+        "GLOBAL",
+        "HK"
       ],
       "param_templates": {},
       "sample_successful_params": null,
@@ -346,7 +350,7 @@
       "first_seen_at": "2026-02-15T10:32:26.986Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 39,
+      "fail_count": 45,
       "avg_elapsed_ms": 0,
       "markets": [
         "CN",
@@ -375,10 +379,10 @@
       "tool_id": "x_developer.2.tweets.search.recent.retrieve.v2.f424c8f9",
       "provider": "x_developer",
       "first_seen_at": "2026-02-15T03:25:29.361Z",
-      "last_success_at": "2026-02-16T10:55:53.683Z",
-      "success_count": 64,
+      "last_success_at": "2026-02-22T14:43:58.759Z",
+      "success_count": 102,
       "fail_count": 0,
-      "avg_elapsed_ms": 872,
+      "avg_elapsed_ms": 1045,
       "markets": [
         "US",
         "HK",
@@ -514,7 +518,7 @@
       "first_seen_at": "2026-02-15T11:20:08.080Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 9,
+      "fail_count": 36,
       "avg_elapsed_ms": 0,
       "markets": [
         "US"
@@ -602,15 +606,27 @@
       "tool_id": "finnhub.news.retrieve.v1.51b2567e",
       "provider": "finnhub",
       "first_seen_at": "2026-02-16T02:43:08.583Z",
-      "last_success_at": "2026-02-16T02:43:08.583Z",
-      "success_count": 1,
+      "last_success_at": "2026-02-22T14:43:52.005Z",
+      "success_count": 39,
       "fail_count": 0,
-      "avg_elapsed_ms": 1140,
+      "avg_elapsed_ms": 2108,
       "markets": [
-        "CN"
+        "CN",
+        "US",
+        "HK",
+        "GLOBAL"
       ],
       "param_templates": {
         "CN": {
+          "category": "general"
+        },
+        "US": {
+          "category": "general"
+        },
+        "HK": {
+          "category": "general"
+        },
+        "GLOBAL": {
           "category": "general"
         }
       },
@@ -640,10 +656,11 @@
       "first_seen_at": "2026-02-16T10:34:50.086Z",
       "last_success_at": null,
       "success_count": 0,
-      "fail_count": 2,
+      "fail_count": 7,
       "avg_elapsed_ms": 0,
       "markets": [
-        "US"
+        "US",
+        "GLOBAL"
       ],
       "param_templates": {},
       "sample_successful_params": null,
@@ -653,6 +670,156 @@
       "tool_id": "finnhub_io_api.company.basic_financials",
       "provider": "finnhub_io_api",
       "first_seen_at": "2026-02-16T10:34:50.553Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 2,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "US"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "financial_modeling_prep.stock.quote.retrieve.v1.822497ca": {
+      "tool_id": "financial_modeling_prep.stock.quote.retrieve.v1.822497ca",
+      "provider": "financial_modeling_prep",
+      "first_seen_at": "2026-02-22T12:33:34.506Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 5,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "HK"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "alphavantage.income_statement.retrieve.v1.7aca3c4a": {
+      "tool_id": "alphavantage.income_statement.retrieve.v1.7aca3c4a",
+      "provider": "alphavantage",
+      "first_seen_at": "2026-02-22T12:33:39.627Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 6,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "HK"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "alphavantage.balance_sheet.retrieve.v1.7aca3c4a": {
+      "tool_id": "alphavantage.balance_sheet.retrieve.v1.7aca3c4a",
+      "provider": "alphavantage",
+      "first_seen_at": "2026-02-22T12:33:41.592Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 6,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "HK"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "alphavantage.time_series.monthly.retrieve.v1.7aca3c4a": {
+      "tool_id": "alphavantage.time_series.monthly.retrieve.v1.7aca3c4a",
+      "provider": "alphavantage",
+      "first_seen_at": "2026-02-22T12:33:48.563Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 5,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "HK"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "financial_modeling_prep.discounted_cash_flow.retrieve.v1.0add845f": {
+      "tool_id": "financial_modeling_prep.discounted_cash_flow.retrieve.v1.0add845f",
+      "provider": "financial_modeling_prep",
+      "first_seen_at": "2026-02-22T12:41:29.089Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 5,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "GLOBAL"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "alphavantage.technical.t3.retrieve.v1.7aca3c4a": {
+      "tool_id": "alphavantage.technical.t3.retrieve.v1.7aca3c4a",
+      "provider": "alphavantage",
+      "first_seen_at": "2026-02-22T12:41:40.880Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 5,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "GLOBAL"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "financial_modeling_prep.quote_short.retrieve.v1.729a84c2": {
+      "tool_id": "financial_modeling_prep.quote_short.retrieve.v1.729a84c2",
+      "provider": "financial_modeling_prep",
+      "first_seen_at": "2026-02-22T14:15:32.149Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 1,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "HK"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "twelvedata.splits.retrieve.v1.43527690": {
+      "tool_id": "twelvedata.splits.retrieve.v1.43527690",
+      "provider": "twelvedata",
+      "first_seen_at": "2026-02-22T14:15:48.170Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 1,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "HK"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "financial_modeling_prep.historical_sector_pe.retrieve.v1.d32f9884": {
+      "tool_id": "financial_modeling_prep.historical_sector_pe.retrieve.v1.d32f9884",
+      "provider": "financial_modeling_prep",
+      "first_seen_at": "2026-02-22T14:36:07.260Z",
+      "last_success_at": null,
+      "success_count": 0,
+      "fail_count": 2,
+      "avg_elapsed_ms": 0,
+      "markets": [
+        "US"
+      ],
+      "param_templates": {},
+      "sample_successful_params": null,
+      "last_error": null
+    },
+    "financial_modeling_prep.custom_levered_discounted_cash_flow.retrieve.v1.b424250d": {
+      "tool_id": "financial_modeling_prep.custom_levered_discounted_cash_flow.retrieve.v1.b424250d",
+      "provider": "financial_modeling_prep",
+      "first_seen_at": "2026-02-22T14:36:08.810Z",
       "last_success_at": null,
       "success_count": 0,
       "fail_count": 2,

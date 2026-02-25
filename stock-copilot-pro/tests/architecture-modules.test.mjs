@@ -67,7 +67,7 @@ test("resolveToolPayload should fallback to full_content_file_url when truncated
   const raw = {
     result: {
       truncated_content: "{\"items\":[1,2,3}",
-      full_content_file_url: "https://example.com/full.json",
+      full_content_file_url: "https://qveris.ai/mock/full.json",
     },
   };
   const fakeFetch = async () => ({
@@ -80,4 +80,23 @@ test("resolveToolPayload should fallback to full_content_file_url when truncated
   assert.equal(resolved.meta.contentMode, "full_content_file_url");
   assert.equal(resolved.meta.hasTruncatedContent, true);
   assert.deepEqual(resolved.content, { items: [9, 8, 7] });
+});
+
+test("resolveToolPayload should block non-qveris full_content_file_url host", async () => {
+  const raw = {
+    result: {
+      truncated_content: "{\"items\":[1,2,3}",
+      full_content_file_url: "https://example.com/full.json",
+    },
+  };
+  let called = false;
+  const fakeFetch = async () => {
+    called = true;
+    return { ok: true, async json() { return { items: [0] }; } };
+  };
+  const resolved = await resolveToolPayload(raw, { fetchImpl: fakeFetch, timeoutMs: 1000 });
+  assert.equal(called, false);
+  assert.equal(resolved.meta.contentMode, "payload");
+  assert.equal(resolved.meta.hasTruncatedContent, true);
+  assert.match(String(resolved.meta.fetchError || ""), /blocked host/i);
 });
