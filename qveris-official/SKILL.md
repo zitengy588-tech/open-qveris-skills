@@ -187,11 +187,13 @@ When `search_tools` returns multiple tools, you MUST evaluate each on these crit
 
 ### 2. Execution Time (`avg_execution_time_ms`)
 
-| Range | Verdict |
-|-------|---------|
-| < 5 seconds | **Fast** — preferred for interactive use |
-| 5–15 seconds | **Moderate** — acceptable for most tasks |
-| > 15 seconds | **Slow** — warn user; consider alternatives for time-sensitive tasks |
+| Range (ms)  | Verdict |
+|-------------|---------|
+| < 5000      | **Fast** — preferred for interactive use |
+| 5000–15000  | **Moderate** — acceptable for most tasks |
+| > 15000     | **Slow** — warn user; consider alternatives for time-sensitive tasks |
+
+**Exception for long-running tasks**: For known compute-heavy tasks (e.g., image generation, video generation, heavy data processing), higher execution times are expected and acceptable. Do not downgrade or avoid such tools solely due to `avg_execution_time_ms`; instead, set user expectations for wait time.
 
 ### 3. Parameter Quality
 
