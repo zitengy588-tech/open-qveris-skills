@@ -1,4 +1,5 @@
 const BASE_URL = "https://qveris.ai/api/v1";
+const DEFAULT_FULL_CONTENT_ALLOWED_HOSTS = ["qveris.ai"];
 
 function timeoutSignal(timeoutMs) {
   const controller = new AbortController();
@@ -26,6 +27,37 @@ function pickFullContentFileUrl(rawResult, payload) {
     rawResult?.data?.full_content_file_url ??
     null
   );
+}
+
+function isAllowedHost(hostname, allowedHosts = []) {
+  const host = String(hostname || "").toLowerCase();
+  if (!host) return false;
+  for (const allowed of allowedHosts) {
+    const base = String(allowed || "").toLowerCase().trim();
+    if (!base) continue;
+    if (host === base || host.endsWith(`.${base}`)) return true;
+  }
+  return false;
+}
+
+function validateFullContentUrl(rawUrl, allowedHosts = DEFAULT_FULL_CONTENT_ALLOWED_HOSTS) {
+  if (!rawUrl || typeof rawUrl !== "string") {
+    return { ok: false, reason: "missing full content url", url: null };
+  }
+  let parsed;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return { ok: false, reason: "invalid full content url", url: null };
+  }
+  const protocol = String(parsed.protocol || "").toLowerCase();
+  if (protocol !== "https:") {
+    return { ok: false, reason: `unsupported protocol: ${protocol || "unknown"}`, url: parsed.toString() };
+  }
+  if (!isAllowedHost(parsed.hostname, allowedHosts)) {
+    return { ok: false, reason: `blocked host: ${parsed.hostname}`, url: parsed.toString() };
+  }
+  return { ok: true, reason: null, url: parsed.toString() };
 }
 
 export function resolveToolPayloadSync(rawResult) {
@@ -61,11 +93,25 @@ export async function resolveToolPayload(rawResult, options = {}) {
   if (options.fetchFullContent === false) return initial;
   if (!initial.meta.fullContentFileUrl) return initial;
 
+  const allowedHosts = Array.isArray(options.fullContentAllowedHosts) && options.fullContentAllowedHosts.length > 0
+    ? options.fullContentAllowedHosts
+    : DEFAULT_FULL_CONTENT_ALLOWED_HOSTS;
+  const checked = validateFullContentUrl(initial.meta.fullContentFileUrl, allowedHosts);
+  if (!checked.ok) {
+    return {
+      ...initial,
+      meta: {
+        ...initial.meta,
+        fetchError: checked.reason,
+      },
+    };
+  }
+
   const fetchImpl = options.fetchImpl || fetch;
   const timeoutMs = Number(options.timeoutMs || 10_000);
   const { signal, cleanup } = timeoutSignal(timeoutMs);
   try {
-    const res = await fetchImpl(initial.meta.fullContentFileUrl, { signal });
+    const res = await fetchImpl(checked.url, { signal });
     if (!res.ok) {
       return {
         ...initial,
@@ -81,7 +127,7 @@ export async function resolveToolPayload(rawResult, options = {}) {
       meta: {
         contentMode: "full_content_file_url",
         hasTruncatedContent: true,
-        fullContentFileUrl: initial.meta.fullContentFileUrl,
+        fullContentFileUrl: checked.url,
       },
     };
   } catch (error) {

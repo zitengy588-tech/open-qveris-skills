@@ -1,1 +1,6 @@
 .cursor/
+.env.local
+CONTEXT.md
+dev-infra/**/.env*
+!dev-infra/**/.env*.example
+dev-infra/**/reports/

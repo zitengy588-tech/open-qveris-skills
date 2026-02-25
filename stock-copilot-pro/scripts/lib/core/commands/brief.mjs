@@ -86,6 +86,35 @@ async function buildMarketOverview(args, analyzeSymbol) {
   };
 }
 
+function summarizeBriefDataSources(radarMeta, reports) {
+  const rows = [];
+  const sourceStats = radarMeta?.sourceStats || [];
+  for (const stat of sourceStats) {
+    if (!stat?.ok || !stat?.toolId) continue;
+    rows.push({
+      scope: "radar",
+      source: stat.source || "unknown",
+      toolId: stat.toolId,
+    });
+  }
+  for (const report of reports || []) {
+    for (const ds of report?.dataSources || []) {
+      if (!ds?.toolId) continue;
+      rows.push({
+        scope: `holding:${report.symbol || "unknown"}`,
+        source: ds.provider || "unknown",
+        toolId: ds.toolId,
+      });
+    }
+  }
+  const uniq = new Map();
+  for (const row of rows) {
+    const key = `${row.scope}#${row.toolId}`;
+    if (!uniq.has(key)) uniq.set(key, row);
+  }
+  return [...uniq.values()];
+}
+
 export async function briefCommand(args = {}, context = {}) {
   const type = String(args.briefType || args.type || "morning").toLowerCase();
   const maxItems = Math.max(1, Number(args.maxItems || 8));
@@ -130,6 +159,7 @@ export async function briefCommand(args = {}, context = {}) {
         score: result.analysis?.scorecard?.composite ?? null,
         signal: result.analysis?.recommendation?.signal || "N/A",
         risk: result.analysis?.chaseRisk?.risk || "unknown",
+        dataSources: result?.dataSources || [],
       });
     } catch (error) {
       reports.push({
@@ -139,6 +169,8 @@ export async function briefCommand(args = {}, context = {}) {
       });
     }
   }
+
+  const dataSources = summarizeBriefDataSources(radar?.meta || null, reports);
 
   return {
     mode: "brief",
@@ -152,6 +184,7 @@ export async function briefCommand(args = {}, context = {}) {
     marketOverview,
     highlights,
     radarMeta: radar?.meta || null,
+    dataSources,
     meta: {
       note: "Analysis delegated to OpenClaw LLM via SKILL.md Daily Brief Analysis Guide",
       guide: "Daily Brief Analysis Guide",

@@ -368,18 +368,12 @@ Generates performance reports using the validation workflow. Produces weekly and
 
 ### Smoke Tests (Regression Guard)
 
-**Location**: `tests/` — 64 unit tests covering all three scripts.
+**Location**: `tests/` — 63 unit tests covering all three scripts.
 
 Run:
 ```bash
 # No dependencies required — uses Python stdlib unittest
 python3 -m unittest discover tests/ -v
-```
-
-Test coverage:
-- `tests/test_validator.py` — 26 tests: timeline validation, tweet detail cross-validation, sanity checks, metrics calculation, execution plan structure
-- `tests/test_content_planner.py` — 20 tests: daily plan generation, content mix compliance, pillar validity, thread day detection, all 7 days of week
-- `tests/test_analytics_reporter.py` — 18 tests: metrics computation, top/bottom performer ranking, benchmark comparison by growth stage, period comparison, recommendation generation
 
 Run after any script change before shipping.
 

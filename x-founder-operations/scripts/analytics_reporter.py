@@ -122,11 +122,11 @@ class AnalyticsReporter:
 
             complete_count += 1
             total_impressions += impressions
-            total_likes += m.get("likeCount", 0) or 0
-            total_retweets += m.get("retweetCount", 0) or 0
-            total_replies += m.get("replyCount", 0) or 0
-            total_quotes += m.get("quoteCount", 0) or 0
-            total_bookmarks += m.get("bookmarkCount", 0) or 0
+            total_likes += m.get("likeCount") or 0
+            total_retweets += m.get("retweetCount") or 0
+            total_replies += m.get("replyCount") or 0
+            total_quotes += m.get("quoteCount") or 0
+            total_bookmarks += m.get("bookmarkCount") or 0
 
         total_engagement = total_likes + total_retweets + total_replies + total_quotes
 

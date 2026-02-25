@@ -39,6 +39,7 @@ X Founder Operations provides a complete operating system for running an effecti
    config/profile.example.json → config/profile.json
    config/goals.example.json → config/goals.json
    config/watchlist.example.json → config/watchlist.json
+   config/content-calendar.example.json → config/content-calendar.json
    ```
 
 2. Optimize your X profile using `references/profile-optimization.md`
