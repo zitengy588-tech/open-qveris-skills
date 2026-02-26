@@ -25,28 +25,29 @@ export QVERIS_API_KEY="your-api-key-here"
 
 **Option 1: Install via ClawdHub (Recommended)**
 ```bash
-clawdhub install qveris
+clawdhub install qveris-official
 ```
 
 **Option 2: Install via NPX (For other coding agents)**
 ```bash
-npx skills add hqman/qveris
+npx skills add linfangw/qveris-official
 ```
 
 **Option 3: Manual Installation**
 
 Copy this folder to your OpenClaw skills directory:
 ```bash
-cp -r qveris ~/.openclaw/skills/
+cp -r qveris-official ~/.openclaw/skills/
 ```
 
 ## Usage
 
-Once installed, OpenClaw will automatically use this skill when tasks involve:
-- Real-time data (stock prices, crypto, forex, weather, news, economic indicators)
-- Tool capabilities (image/video generation, translation, OCR, content processing)
-- External services (geocoding, navigation, email, cloud storage, automation)
-- Research (academic papers, clinical trials, patent search)
+Once installed, your AI agent will automatically use this skill when tasks involve:
+- **Data**: stock prices, crypto, forex, commodities, economic indicators, company financials, news, social media analytics, blockchain/on-chain data
+- **Tool services**: image/video generation, text-to-speech, OCR, PDF extraction, translation, AI model inference
+- **SaaS integrations**: email, SMS, cloud storage, workflow automation, CRM
+- **Location & geo**: maps, geocoding, navigation, POI search, satellite imagery
+- **Research**: academic papers, patent databases, clinical trials, datasets
 - And thousands more...
 
 ### Manual Commands
@@ -54,14 +55,19 @@ Once installed, OpenClaw will automatically use this skill when tasks involve:
 ```bash
 # Search for tools
 node scripts/qveris_tool.mjs search "stock price data"
+node scripts/qveris_tool.mjs search "image generation" --limit 5
 
 # Execute a tool
-node scripts/qveris_tool.mjs execute <tool_id> --search-id <id> --params '{"symbol": "AAPL"}'
+node scripts/qveris_tool.mjs execute <tool_id> --search-id <search_id> --params '{"symbol": "AAPL"}'
+
+# Output raw JSON
+node scripts/qveris_tool.mjs search "weather forecast" --json
+node scripts/qveris_tool.mjs execute <tool_id> --search-id <search_id> --params '{"city": "London"}' --json
 ```
 
 ## Author
 
-[@hqmank](https://x.com/hqmank)
+[@QVeris_AI](https://x.com/QVeris_AI)
 
 ## License
 
