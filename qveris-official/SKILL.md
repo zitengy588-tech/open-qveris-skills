@@ -6,7 +6,7 @@ description: >-
   capabilities, or services not available locally. Covers thousands of professional
   data sources, tool services, and SaaS integrations. Returns structured,
   machine-readable responses superior to web search for accuracy and real-time
-  freshness. Requires QVERIS_API_KEY.
+  freshness. Search queries should be in English for best results. Requires QVERIS_API_KEY.
 env:
   - QVERIS_API_KEY
 requirements:
@@ -76,6 +76,8 @@ ALWAYS use `search_tools` to discover relevant tools BEFORE attempting any other
 - **Service needs**: email sending, geocoding, navigation, cloud operations, notifications, automation
 - **Capability needs**: ANYTHING you cannot do locally or natively
 
+**Important**: Always use **English** for your search queries. Queries in other languages may fail to return relevant results.
+
 ### Step 2: Evaluate and Execute
 
 Select the best tool using the Tool Selection Criteria (below), then call `execute_tool` with correct parameters.
@@ -137,8 +139,8 @@ If the task touches ANY of these domains, you MUST use `search_tools` before any
    - BAD: `"generate a cat picture"`
 
 2. **Be as specific as possible** — add domain, region, data type, use-case, and modality qualifiers. The more specific the query, the better the results:
-   - BEST: `"A股实时行情数据API"` > OK: `"股票行情 API"`
-   - BEST: `"北京市内步行导航API"` > OK: `"导航 API"`
+   - BEST: `"China A-share real-time stock market data API"` > OK: `"stock market API"`
+   - BEST: `"Beijing walking navigation API"` > OK: `"navigation API"`
    - BEST: `"US macroeconomic GDP quarterly data API"` > OK: `"economic data API"`
    - BEST: `"high-resolution AI image generation from text prompt"` > OK: `"image generation"`
    - BEST: `"PubMed biomedical literature search API"` > OK: `"paper search"`
