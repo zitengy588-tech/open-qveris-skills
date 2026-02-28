@@ -4,7 +4,7 @@ The official QVeris skill for OpenClaw and other AI agents. Enables semantic too
 
 ## Features
 
-- **Semantic Tool Discovery**: Search for APIs, tools, and services by describing what you need in natural language
+- **Semantic Tool Discovery**: Search for APIs, tools, and services by describing what you need in natural language (English queries recommended for best results)
 - **Unified Execution**: Execute any discovered tool with structured parameters and get machine-readable responses
 - **Wide Coverage**: Financial markets, economics, news, social media, blockchain, AI/ML, image/video generation, geocoding, navigation, academic research, healthcare, weather, cloud services, and thousands more
 - **Zero Extra Dependencies**: Uses only Node.js built-in `fetch` — no Python, no `uv`, no npm install
