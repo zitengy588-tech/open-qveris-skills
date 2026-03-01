@@ -84,7 +84,7 @@ async function getToolsByIds(toolIds, searchId, timeoutMs = 30000) {
   }
 }
 
-async function executeTool(toolId, searchId, parameters, maxResponseSize = 20480, timeoutMs = 60000) {
+async function executeTool(toolId, searchId, parameters, maxResponseSize = 20480, timeoutMs = 120000) {
   const apiKey = getApiKey();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
