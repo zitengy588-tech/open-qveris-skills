@@ -1,6 +1,6 @@
 # QVeris Official Skill
 
-The official QVeris skill for OpenClaw and other AI agents. Enables semantic tool discovery and unified execution across thousands of professional data sources, tool services, and SaaS integrations via the QVeris API.
+The official QVeris skill for OpenClaw and other AI agents. Enables semantic tool discovery and unified execution across thousands of professional data sources, tool services, and APIs via the QVeris API.
 
 ## Features
 
@@ -28,12 +28,7 @@ export QVERIS_API_KEY="your-api-key-here"
 npx clawdhub install qveris-official
 ```
 
-**Option 2: Install via NPX (For other coding agents)**
-```bash
-npx skills add linfangw/qveris-official
-```
-
-**Option 3: Manual Installation**
+**Option 2: Manual Installation**
 
 Copy this folder to your OpenClaw skills directory:
 ```bash
