@@ -60,6 +60,7 @@ No additional dependencies — uses Node.js built-in `fetch`.
 - **Credential**: Only `QVERIS_API_KEY` is accessed. No other env vars or secrets are read.
 - **Network**: API key is sent only to `https://qveris.ai/api/v1` over HTTPS. No other endpoints are contacted.
 - **Storage**: The key is never logged, cached, or written to disk.
+- **Privacy**: Avoid including sensitive credentials or personally identifiable information (PII) in search queries or tool parameters. Review QVeris's privacy policy at https://qveris.ai before transmitting sensitive data.
 - **Recommendation**: Use a scoped, revocable API key. Monitor usage at https://qveris.ai.
 
 ---
