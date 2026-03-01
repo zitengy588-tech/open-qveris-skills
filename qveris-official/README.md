@@ -25,7 +25,7 @@ export QVERIS_API_KEY="your-api-key-here"
 
 **Option 1: Install via ClawdHub (Recommended)**
 ```bash
-clawdhub install qveris-official
+npx clawdhub install qveris-official
 ```
 
 **Option 2: Install via NPX (For other coding agents)**
@@ -45,7 +45,6 @@ cp -r qveris-official ~/.openclaw/skills/
 Once installed, your AI agent will automatically use this skill when tasks involve:
 - **Data**: stock prices, crypto, forex, commodities, economic indicators, company financials, news, social media analytics, blockchain/on-chain data
 - **Tool services**: image/video generation, text-to-speech, OCR, PDF extraction, translation, AI model inference
-- **SaaS integrations**: email, SMS, cloud storage, workflow automation, CRM
 - **Location & geo**: maps, geocoding, navigation, POI search, satellite imagery
 - **Research**: academic papers, patent databases, clinical trials, datasets
 - And thousands more...
@@ -59,6 +58,9 @@ node scripts/qveris_tool.mjs search "image generation" --limit 5
 
 # Execute a tool
 node scripts/qveris_tool.mjs execute <tool_id> --search-id <search_id> --params '{"symbol": "AAPL"}'
+
+# Get tool details by ID (skip full search for known tools)
+node scripts/qveris_tool.mjs get-by-ids <tool_id>
 
 # Output raw JSON
 node scripts/qveris_tool.mjs search "weather forecast" --json

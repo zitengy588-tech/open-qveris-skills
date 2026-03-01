@@ -8,6 +8,7 @@
  * Usage:
  *   node scripts/qveris_tool.mjs search "weather forecast"
  *   node scripts/qveris_tool.mjs execute <tool_id> --search-id <id> --params '{"city": "London"}'
+ *   node scripts/qveris_tool.mjs get-by-ids <tool_id1> [tool_id2 ...]
  */
 
 const BASE_URL = "https://qveris.ai/api/v1";
@@ -35,6 +36,38 @@ async function searchTools(query, limit = 10, timeoutMs = 30000) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, limit }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`HTTP Error: ${response.status}`);
+      console.error(text);
+      process.exit(1);
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getToolsByIds(toolIds, searchId, timeoutMs = 30000) {
+  const apiKey = getApiKey();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const body = { tool_ids: toolIds };
+    if (searchId) body.search_id = searchId;
+
+    const response = await fetch(`${BASE_URL}/tools/by-ids`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
@@ -170,23 +203,26 @@ function printUsage() {
 Usage:
   node scripts/qveris_tool.mjs search <query> [options]
   node scripts/qveris_tool.mjs execute <tool_id> --search-id <id> [options]
+  node scripts/qveris_tool.mjs get-by-ids <tool_id> [tool_id2 ...] [options]
 
 Commands:
-  search <query>     Search for tools matching a capability description
-  execute <tool_id>  Execute a specific tool with parameters
+  search <query>              Search for tools matching a capability description
+  execute <tool_id>           Execute a specific tool with parameters
+  get-by-ids <id> [id2 ...]   Get tool details by one or more tool IDs
 
 Options:
   --limit N          Max results for search (default: 10)
-  --search-id ID     Search ID from previous search (required for execute)
+  --search-id ID     Search ID from previous search (required for execute, optional for get-by-ids)
   --params JSON      Tool parameters as JSON string (default: "{}")
   --max-size N       Max response size in bytes (default: 20480)
-  --timeout N        Request timeout in seconds (default: 30 for search, 60 for execute)
+  --timeout N        Request timeout in seconds (default: 30 for search/get-by-ids, 60 for execute)
   --json             Output raw JSON instead of formatted display
   --help             Show this help message
 
 Examples:
   node scripts/qveris_tool.mjs search "weather forecast API"
-  node scripts/qveris_tool.mjs execute openweathermap_current_weather --search-id abc123 --params '{"city": "London"}'`);
+  node scripts/qveris_tool.mjs execute openweathermap_current_weather --search-id abc123 --params '{"city": "London"}'
+  node scripts/qveris_tool.mjs get-by-ids openweathermap.weather.execute.v1`);
 }
 
 function parseArgs(argv) {
@@ -247,8 +283,33 @@ function parseArgs(argv) {
       console.error("Error: --search-id is required for execute command");
       process.exit(1);
     }
+  } else if (command === "get-by-ids") {
+    if (args.length < 2) {
+      console.error("Error: get-by-ids command requires at least one tool_id argument");
+      process.exit(1);
+    }
+    parsed.toolIds = [];
+    parsed.searchId = null;
+    parsed.timeout = 30;
+
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === "--search-id" && i + 1 < args.length) {
+        parsed.searchId = args[++i];
+      } else if (args[i] === "--timeout" && i + 1 < args.length) {
+        parsed.timeout = parseInt(args[++i], 10);
+      } else if (args[i] === "--json") {
+        parsed.json = true;
+      } else if (!args[i].startsWith("--")) {
+        parsed.toolIds.push(args[i]);
+      }
+    }
+
+    if (parsed.toolIds.length === 0) {
+      console.error("Error: get-by-ids command requires at least one tool_id argument");
+      process.exit(1);
+    }
   } else {
-    console.error(`Error: unknown command '${command}'. Use 'search' or 'execute'.`);
+    console.error(`Error: unknown command '${command}'. Use 'search', 'execute', or 'get-by-ids'.`);
     process.exit(1);
   }
 
@@ -279,6 +340,13 @@ async function main() {
         console.log(JSON.stringify(result, null, 2));
       } else {
         displayExecutionResult(result);
+      }
+    } else if (args.command === "get-by-ids") {
+      const result = await getToolsByIds(args.toolIds, args.searchId, args.timeout * 1000);
+      if (args.json) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        displaySearchResults(result);
       }
     }
   } catch (e) {
