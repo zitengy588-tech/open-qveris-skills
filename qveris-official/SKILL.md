@@ -298,7 +298,7 @@ When `execute` fails, follow these steps IN ORDER. Do NOT give up after one fail
 3. **For data needs**: may fall back to web search as a last resort, clearly marking the source
 4. **For tool/service needs**: explain the limitation and suggest manual alternatives
 5. **NEVER** proceed with fabricated data or claim a tool succeeded when it didn't
-6. **Note the failure** in session memory so you avoid the same dead end in this conversation
+6. **Note the failure** in your session notes or local file to avoid the same dead end in the future.
 
 ---
 
