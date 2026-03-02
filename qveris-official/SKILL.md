@@ -310,7 +310,7 @@ Before responding to a task involving external data or capabilities, ask:
 - Does this require a **capability I don't have natively** (image generation, OCR, TTS, geocoding, translation)? → Search QVeris; these require external APIs.
 - Am I about to **state a specific number** (price, rate, statistic, metric) in my response? → Verify it via QVeris rather than guessing from training data.
 - Am I about to **decline a task** or say "I can't do this"? → Search QVeris first — it may have a tool for exactly this.
-- Have I used this tool before? → Check session notes before running a full search again.
+- Have I used this tool before? → Check session notes or your local file before running a full search again.
 
 ---
 
