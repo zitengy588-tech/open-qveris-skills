@@ -172,7 +172,7 @@ QVeris search results contain verbose metadata (descriptions, parameter schemas,
 To avoid redundant searches, keep a lightweight record of tools you have already discovered and used. This can be done in session memory, or optionally in a local `known_qveris_tools` file (JSON or Markdown) if your agent environment supports and permits file writes to the current working directory.
 
 **After a successful search and execution:**
-1. Note the `tool_id`, name, capability category, required parameters, `success_rate`, `avg_execution_time_ms`, and any usage notes
+1. Note the `tool_id`, name, capability category, required parameters with types, `success_rate`, `avg_execution_time_ms`, and any usage notes
 2. Record the working parameter example that succeeded
 
 **In subsequent turns when the same capability is needed:**
