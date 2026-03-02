@@ -371,6 +371,6 @@ Options:
 1. search         →  Describe the capability needed (not specific parameters)
 2. Evaluate       →  Compare tools by success_rate, avg_execution_time_ms, parameter quality
 3. execute        →  Call with tool_id, search_id, and validated parameters
-4. Note          →  Record outcome in session memory for future reference in this conversation
+4. Note          →  Record outcome in session memory or a local file for future reference
 5. Recover       →  If failed, follow Error Recovery Protocol — never give up after one try
 ```
