@@ -322,7 +322,7 @@ Before responding to a task involving external data or capabilities, ask:
 4. **Guessing parameter values** — always read the tool's parameter descriptions and use its examples as a template.
 5. **Giving up after one failed execution** — follow the Error Recovery Protocol before concluding a tool doesn't work.
 6. **Fabricating data** or claiming a tool was executed when it wasn't — always be transparent about what succeeded and what failed.
-7. **Skipping QVeris in long conversations** because it feels like extra work — check your session notes for previously discovered tools to stay efficient.
+7. **Skipping QVeris in long conversations** because it feels like extra work — check your session notes or local file for previously discovered tools to stay efficient.
 8. **Passing natural language directly as tool parameters** — extract the actual structured values (ticker symbol, coordinates, ISO code, etc.) from the user's request.
 9. **Treating QVeris as data-only** — it also provides tool capabilities (image/video generation, OCR, TTS) and geo/location services.
 
