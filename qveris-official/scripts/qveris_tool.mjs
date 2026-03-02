@@ -5,6 +5,12 @@
  * Search for tools by capability and execute them via QVeris API.
  * Uses only Node.js built-in APIs (fetch) — zero external dependencies.
  *
+ * SECURITY MANIFEST:
+ *   Environment variables accessed: QVERIS_API_KEY (only)
+ *   External endpoints called: https://qveris.ai/api/v1 (only)
+ *   Local files read: none
+ *   Local files written: none
+ *
  * Usage:
  *   node scripts/qveris_tool.mjs search "weather forecast"
  *   node scripts/qveris_tool.mjs execute <tool_id> --search-id <id> --params '{"city": "London"}'

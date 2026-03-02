@@ -9,6 +9,13 @@ description: >-
   generation, OCR, TTS, translation, geocoding), and web search APIs as a fallback when
   no local search tool is configured. Search queries should be in English for best results.
   Requires QVERIS_API_KEY.
+homepage: https://github.com/QVerisAI/open-qveris-skills/tree/main/qveris-official
+metadata:
+  clawdbot:
+    requires:
+      env: ["QVERIS_API_KEY"]
+    primaryEnv: "QVERIS_API_KEY"
+    files: ["scripts/*"]
 env:
   - QVERIS_API_KEY
 requirements:
