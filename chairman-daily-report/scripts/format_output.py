@@ -16,6 +16,7 @@ def format_report(
     macro_news: List[Dict[str, Any]],
     executive_summary: str,
     next_steps: List[str],
+    gold_price: Dict[str, Any],
     companies: List[str],
     output_format: str = "markdown"
 ) -> str:
@@ -23,10 +24,10 @@ def format_report(
     
     if output_format == "feishu":
         return format_feishu_report(report_type, market_data, quotes, news_data, sentiment_data, 
-                                   risk_data, macro_news, executive_summary, next_steps, companies)
+                                   risk_data, macro_news, executive_summary, next_steps, gold_price, companies)
     else:
         return format_markdown_report(report_type, market_data, quotes, news_data, sentiment_data,
-                                     risk_data, macro_news, executive_summary, next_steps, companies)
+                                     risk_data, macro_news, executive_summary, next_steps, gold_price, companies)
 
 def format_markdown_report(
     report_type: str,
@@ -38,6 +39,7 @@ def format_markdown_report(
     macro_news: List[Dict[str, Any]],
     executive_summary: str,
     next_steps: List[str],
+    gold_price: Dict[str, Any],
     companies: List[str]
 ) -> str:
     """生成 Markdown 格式报告"""
@@ -76,6 +78,12 @@ def format_markdown_report(
         volume_str = f" | 成交: {volume}" if volume else ""
         lines.append(f"- {change_emoji} **{index['name']}**: {index['price']} ({index.get('change_percent', 'N/A')}){volume_str}")
     lines.append("")
+    
+    # 金价
+    if gold_price and gold_price.get("price"):
+        lines.append(f"### 🥇 黄金价格")
+        lines.append(f"- 💰 **国际金价**: {gold_price.get('price')} {gold_price.get('currency', 'USD')}")
+        lines.append("")
     
     # 关注公司行情
     if quotes:

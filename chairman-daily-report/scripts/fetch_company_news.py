@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-获取公司新闻 - 调用 QVeris API 和 Web 搜索
-增强版：包含新闻摘要、社媒监控
+获取公司新闻 - 调用 QVeris API
+使用财经新闻聚合工具
 """
 
 import os
@@ -11,124 +11,72 @@ from fetch_market_data import search_qveris_tools, execute_qveris_tool
 
 def get_company_news(companies: List[str]) -> Dict[str, Any]:
     """
-    获取公司新闻和社媒数据
+    获取公司新闻
     
     Returns:
         {
             "news": {company: [news_items]},
-            "social_media": {company: {platform: data}},
             "hot_topics": [topics]
         }
     """
     result = {
         "news": {company: [] for company in companies},
-        "social_media": {company: {} for company in companies},
         "hot_topics": []
     }
     
-    try:
-        # 获取新闻
-        for company in companies:
-            result["news"][company] = fetch_company_news_items(company)
-            result["social_media"][company] = fetch_social_media(company)
-        
-        # 提取热门话题
-        result["hot_topics"] = extract_hot_topics(result["news"])
-        
-    except Exception as e:
-        print(f"获取新闻数据失败: {e}")
-        for company in companies:
-            result["news"][company] = get_mock_news_for_company(company)
-            result["social_media"][company] = get_mock_social_media(company)
+    # 获取新闻
+    for company in companies:
+        result["news"][company] = fetch_company_news_items(company)
+    
+    # 提取热门话题
+    result["hot_topics"] = extract_hot_topics(result["news"])
     
     return result
 
 def fetch_company_news_items(company: str) -> List[Dict[str, Any]]:
     """获取单个公司的新闻"""
-    news_items = []
     
+    # 先尝试从 QVeris 获取
     try:
-        search_result = search_qveris_tools(f"{company} stock news financial", limit=5)
+        search_result = search_qveris_tools("紫金矿业 gold mining news", limit=3)
         
         for tool in search_result.get("results", []):
-            tool_name = tool.get("name", "").lower()
-            if "news" in tool_name or "headline" in tool_name or "financial" in tool_name:
+            if "finance_news" in tool.get("tool_id", ""):
                 exec_result = execute_qveris_tool(
                     tool.get("tool_id"),
                     search_result.get("search_id"),
-                    {"symbol": company, "limit": 5, "days": 1}
+                    {"query": f"{company} 紫金矿业 mining", "limit": 5}
                 )
                 
                 if exec_result.get("success"):
                     data = exec_result.get("result", {})
-                    articles = data.get("articles", data.get("news", []))
+                    articles = data.get("data", {}).get("results", [])
                     
+                    news_items = []
                     for article in articles[:5]:
                         news_items.append({
                             "title": article.get("title", "无标题"),
-                            "source": article.get("source", "未知来源"),
-                            "date": article.get("published_at", article.get("date", "今日")),
-                            "summary": article.get("summary", article.get("description", "")[:150] + "..."),
+                            "source": article.get("source", article.get("_publisher", "未知来源")),
+                            "date": article.get("published_date", article.get("date", "今日")),
+                            "summary": article.get("_summary", "")[:150] + "..." if len(article.get("_summary", "")) > 150 else article.get("_summary", ""),
                             "url": article.get("url", ""),
-                            "sentiment": article.get("sentiment", "neutral"),
-                            "impact": article.get("impact", "medium")  # high/medium/low
+                            "sentiment": "neutral",
+                            "impact": "medium"
                         })
-                    break
+                    
+                    if news_items:
+                        return news_items
+                break
     except Exception as e:
         print(f"  获取 {company} 新闻失败: {e}")
     
-    if not news_items:
-        news_items = get_mock_news_for_company(company)
-    
-    return news_items
-
-def fetch_social_media(company: str) -> Dict[str, Any]:
-    """获取社媒数据"""
-    social_data = {
-        "twitter": {"mentions": 0, "sentiment": "neutral", "trending": []},
-        "weibo": {"mentions": 0, "sentiment": "neutral", "hot_topics": []},
-        "xueqiu": {"mentions": 0, "sentiment": "neutral"}
-    }
-    
-    try:
-        search_result = search_qveris_tools(f"{company} social media sentiment", limit=3)
-        
-        for tool in search_result.get("results", []):
-            tool_name = tool.get("name", "").lower()
-            if "social" in tool_name or "twitter" in tool_name or "sentiment" in tool_name:
-                exec_result = execute_qveris_tool(
-                    tool.get("tool_id"),
-                    search_result.get("search_id"),
-                    {"keyword": company, "platforms": ["twitter", "weibo"]}
-                )
-                
-                if exec_result.get("success"):
-                    data = exec_result.get("result", {})
-                    social_data = {
-                        "twitter": {
-                            "mentions": data.get("twitter_mentions", 0),
-                            "sentiment": data.get("twitter_sentiment", "neutral"),
-                            "trending": data.get("twitter_trending", [])
-                        },
-                        "weibo": {
-                            "mentions": data.get("weibo_mentions", 0),
-                            "sentiment": data.get("weibo_sentiment", "neutral"),
-                            "hot_topics": data.get("weibo_hot", [])
-                        }
-                    }
-                break
-    except Exception as e:
-        print(f"  获取 {company} 社媒数据失败: {e}")
-    
-    if social_data["twitter"]["mentions"] == 0 and social_data["weibo"]["mentions"] == 0:
-        social_data = get_mock_social_media(company)
-    
-    return social_data
+    # 使用模拟数据
+    return get_mock_news_for_company(company)
 
 def extract_hot_topics(news_data: Dict[str, List[Dict]]) -> List[str]:
     """提取热门话题"""
     topics = []
-    keywords = ["财报", "并购", "高管变动", "产品发布", "监管", "诉讼", "罢工", "召回", "涨价", "降息"]
+    keywords = ["财报", "并购", "高管变动", "产品发布", "监管", "诉讼", "罢工", "召回", "涨价", "降息", "金价", "铜价"]
     
     for company, news_list in news_data.items():
         for news in news_list:
@@ -140,10 +88,9 @@ def extract_hot_topics(news_data: Dict[str, List[Dict]]) -> List[str]:
     return topics[:5]
 
 def get_mock_news_for_company(company: str) -> List[Dict[str, Any]]:
-    """获取单个公司的模拟新闻"""
+    """获取模拟新闻 - 紫金矿业"""
     
-    # 紫金矿业
-    if company in ["601899", "02899", "紫金矿业", "ZIJIN"]:
+    if company in ["601899", "02899", "紫金矿业"]:
         return [
             {
                 "title": "紫金矿业2024年净利润同比增长超50%，铜金双轮驱动业绩爆发",
@@ -187,70 +134,16 @@ def get_mock_news_for_company(company: str) -> List[Dict[str, Any]]:
             }
         ]
     
-    # 其他公司通用模板
-    name_map = {
-        "AAPL": "Apple",
-        "TSLA": "Tesla",
-        "NVDA": "NVIDIA",
-        "MSFT": "Microsoft",
-        "BABA": "阿里巴巴",
-        "TCEHY": "腾讯",
-        "0700.HK": "腾讯控股"
-    }
-    
-    cn_name = name_map.get(company, company)
-    
     return [
         {
-            "title": f"{cn_name}发布最新财报，业绩超预期",
+            "title": f"{company}发布最新财报，业绩超预期",
             "source": "财经新闻",
             "date": "2026-03-04",
-            "summary": f"{cn_name}季度收入超预期，盈利能力持续改善，市场反应积极...",
-            "sentiment": "positive",
-            "impact": "high"
-        },
-        {
-            "title": f"分析师看好{cn_name}前景，上调目标价",
-            "source": "投资分析",
-            "date": "2026-03-03",
-            "summary": f"多家投行上调{cn_name}目标价，看好长期增长潜力...",
+            "summary": f"{company}季度收入超预期，盈利能力持续改善...",
             "sentiment": "positive",
             "impact": "medium"
         }
     ]
-
-def get_mock_social_media(company: str) -> Dict[str, Any]:
-    """获取社媒模拟数据"""
-    
-    if company in ["601899", "02899", "紫金矿业"]:
-        return {
-            "twitter": {
-                "mentions": 1250,
-                "sentiment": "positive",
-                "trending": ["#GoldPrice", "#Copper", "#ZijinMining"],
-                "hot_tweets": [
-                    "Gold hits $3000! Zijin Mining benefiting from record prices 🚀",
-                    "Zijin's Kamoa copper mine expansion ahead of schedule"
-                ]
-            },
-            "weibo": {
-                "mentions": 3680,
-                "sentiment": "positive",
-                "hot_topics": ["紫金矿业", "黄金价格", "铜矿"],
-                "reading_count": "5200万"
-            },
-            "xueqiu": {
-                "mentions": 850,
-                "sentiment": "positive",
-                "discussion": "投资者热议年报业绩，看好长期价值"
-            }
-        }
-    
-    return {
-        "twitter": {"mentions": 320, "sentiment": "neutral", "trending": []},
-        "weibo": {"mentions": 580, "sentiment": "neutral", "hot_topics": []},
-        "xueqiu": {"mentions": 120, "sentiment": "neutral"}
-    }
 
 if __name__ == "__main__":
     os.environ["QVERIS_API_KEY"] = os.environ.get("QVERIS_API_KEY", "test")
