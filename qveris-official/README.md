@@ -1,11 +1,12 @@
 # QVeris Official Skill
 
-The official QVeris skill for OpenClaw and other AI agents. Enables semantic tool discovery and unified execution across thousands of professional data sources, tool services, and APIs via the QVeris API.
+The official QVeris skill for OpenClaw and other AI agents. QVeris is a capability discovery and tool invocation engine that helps agents discover tools by capability and invoke them through QVeris.
 
 ## Features
 
-- **Semantic Tool Discovery**: Search for APIs, tools, and services by describing what you need in natural language (English queries recommended for best results)
-- **Unified Execution**: Execute any discovered tool with structured parameters and get machine-readable responses
+- **Capability Discovery**: Discover suitable tools by describing the capability you need in natural language (English queries recommended for best results)
+- **Tool Invocation**: Invoke the selected tool through QVeris with structured parameters and get machine-readable responses
+- **Unified API Entry**: Use one QVeris entrypoint instead of constructing provider-specific endpoints
 - **Wide Coverage**: Financial markets, economics, news, social media, blockchain, AI/ML, image/video generation, geocoding, navigation, academic research, healthcare, weather, cloud services, and thousands more
 - **Zero Extra Dependencies**: Uses only Node.js built-in `fetch` — no Python, no `uv`, no npm install
 
@@ -46,20 +47,24 @@ Once installed, your AI agent will automatically use this skill when tasks invol
 
 ### Manual Commands
 
+Manual usage follows a two-step flow: **discover tools by capability, then invoke the selected tool through QVeris**.
+
+`discover` returns tool candidates and metadata, not final data results. `invoke` returns the execution result.
+
 ```bash
-# Search for tools
-node scripts/qveris_tool.mjs search "stock price data"
-node scripts/qveris_tool.mjs search "image generation" --limit 5
+# Discover tools for a capability
+node scripts/qveris_tool.mjs discover "stock price data"
+node scripts/qveris_tool.mjs discover "image generation" --limit 5
 
-# Execute a tool
-node scripts/qveris_tool.mjs execute <tool_id> --search-id <search_id> --params '{"symbol": "AAPL"}'
+# Invoke the selected tool
+node scripts/qveris_tool.mjs invoke <tool_id> --discovery-id <discovery_id> --params '{"symbol": "AAPL"}'
 
-# Get tool details by ID (skip full search for known tools)
-node scripts/qveris_tool.mjs get-by-ids <tool_id>
+# Inspect a known tool by ID (skip full discovery for known tools)
+node scripts/qveris_tool.mjs inspect <tool_id>
 
 # Output raw JSON
-node scripts/qveris_tool.mjs search "weather forecast" --json
-node scripts/qveris_tool.mjs execute <tool_id> --search-id <search_id> --params '{"city": "London"}' --json
+node scripts/qveris_tool.mjs discover "weather forecast" --json
+node scripts/qveris_tool.mjs invoke <tool_id> --discovery-id <discovery_id> --params '{"city": "London"}' --json
 ```
 
 ## Author

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * QVeris Tool Search & Execution CLI
+ * QVeris Capability Discovery & Tool Invocation CLI
  *
- * Search for tools by capability and execute them via QVeris API.
+ * Discover tools by capability and invoke them through QVeris.
  * Uses only Node.js built-in APIs (fetch) — zero external dependencies.
  *
  * SECURITY MANIFEST:
@@ -12,9 +12,9 @@
  *   Local files written: none
  *
  * Usage:
- *   node scripts/qveris_tool.mjs search "weather forecast"
- *   node scripts/qveris_tool.mjs execute <tool_id> --search-id <id> --params '{"city": "London"}'
- *   node scripts/qveris_tool.mjs get-by-ids <tool_id1> [tool_id2 ...]
+ *   node scripts/qveris_tool.mjs discover "weather forecast"
+ *   node scripts/qveris_tool.mjs invoke <tool_id> --discovery-id <id> --params '{"city": "London"}'
+ *   node scripts/qveris_tool.mjs inspect <tool_id1> [tool_id2 ...]
  */
 
 const BASE_URL = "https://qveris.ai/api/v1";
@@ -29,7 +29,31 @@ function getApiKey() {
   return key;
 }
 
-async function searchTools(query, limit = 10, timeoutMs = 30000) {
+function normalizeLegacyArgs(rawArgs) {
+  const args = [...rawArgs];
+  const warnings = new Set();
+  const commandAliases = {
+    search: "discover",
+    execute: "invoke",
+    "get-by-ids": "inspect",
+  };
+
+  if (args.length > 0 && commandAliases[args[0]]) {
+    warnings.add(`'${args[0]}' is deprecated; use '${commandAliases[args[0]]}' instead.`);
+    args[0] = commandAliases[args[0]];
+  }
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--search-id") {
+      warnings.add("'--search-id' is deprecated; use '--discovery-id' instead.");
+      args[i] = "--discovery-id";
+    }
+  }
+
+  return { args, warnings: [...warnings] };
+}
+
+async function discoverTools(query, limit = 10, timeoutMs = 30000) {
   const apiKey = getApiKey();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -58,14 +82,14 @@ async function searchTools(query, limit = 10, timeoutMs = 30000) {
   }
 }
 
-async function getToolsByIds(toolIds, searchId, timeoutMs = 30000) {
+async function inspectToolsByIds(toolIds, discoveryId, timeoutMs = 30000) {
   const apiKey = getApiKey();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const body = { tool_ids: toolIds };
-    if (searchId) body.search_id = searchId;
+    if (discoveryId) body.search_id = discoveryId;
 
     const response = await fetch(`${BASE_URL}/tools/by-ids`, {
       method: "POST",
@@ -90,7 +114,7 @@ async function getToolsByIds(toolIds, searchId, timeoutMs = 30000) {
   }
 }
 
-async function executeTool(toolId, searchId, parameters, maxResponseSize = 20480, timeoutMs = 120000) {
+async function invokeTool(toolId, discoveryId, parameters, maxResponseSize = 20480, timeoutMs = 120000) {
   const apiKey = getApiKey();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -106,7 +130,7 @@ async function executeTool(toolId, searchId, parameters, maxResponseSize = 20480
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        search_id: searchId,
+        search_id: discoveryId,
         parameters,
         max_response_size: maxResponseSize,
       }),
@@ -126,12 +150,12 @@ async function executeTool(toolId, searchId, parameters, maxResponseSize = 20480
   }
 }
 
-function displaySearchResults(result) {
-  const searchId = result.search_id ?? "N/A";
+function displayDiscoveryResults(result) {
+  const discoveryId = result.search_id ?? "N/A";
   const tools = result.results ?? [];
   const total = result.total ?? tools.length;
 
-  console.log(`\nSearch ID: ${searchId}`);
+  console.log(`\nDiscovery ID: ${discoveryId}`);
   console.log(`Found ${total} tools\n`);
 
   if (tools.length === 0) {
@@ -183,7 +207,7 @@ function displaySearchResults(result) {
   }
 }
 
-function displayExecutionResult(result) {
+function displayInvocationResult(result) {
   const success = result.success ?? false;
   const execTime = result.elapsed_time_ms ?? "N/A";
   const cost = result.cost ?? 0;
@@ -204,47 +228,56 @@ function displayExecutionResult(result) {
 }
 
 function printUsage() {
-  console.log(`QVeris Tool Search & Execution CLI
+  console.log(`QVeris Capability Discovery & Tool Invocation CLI
 
 Usage:
-  node scripts/qveris_tool.mjs search <query> [options]
-  node scripts/qveris_tool.mjs execute <tool_id> --search-id <id> [options]
-  node scripts/qveris_tool.mjs get-by-ids <tool_id> [tool_id2 ...] [options]
+  node scripts/qveris_tool.mjs discover <query> [options]
+  node scripts/qveris_tool.mjs invoke <tool_id> --discovery-id <id> [options]
+  node scripts/qveris_tool.mjs inspect <tool_id> [tool_id2 ...] [options]
 
 Commands:
-  search <query>              Search for tools matching a capability description
-  execute <tool_id>           Execute a specific tool with parameters
-  get-by-ids <id> [id2 ...]   Get tool details by one or more tool IDs
+  discover <query>            Discover tool candidates for a capability description
+  invoke <tool_id>            Invoke the selected tool through QVeris
+  inspect <id> [id2 ...]      Inspect tool details before reuse or invocation
+
+Notes:
+  discover returns tool candidates and metadata, not final data results
+  invoke returns the execution result
 
 Options:
-  --limit N          Max results for search (default: 10)
-  --search-id ID     Search ID from previous search (required for execute, optional for get-by-ids)
+  --limit N          Max results for discover (default: 10)
+  --discovery-id ID  Discovery ID from previous discover (required for invoke, optional for inspect)
   --params JSON      Tool parameters as JSON string (default: "{}")
   --max-size N       Max response size in bytes (default: 20480)
-  --timeout N        Request timeout in seconds (default: 30 for search/get-by-ids, 60 for execute)
+  --timeout N        Request timeout in seconds (default: 30 for discover/inspect, 60 for invoke)
   --json             Output raw JSON instead of formatted display
   --help             Show this help message
 
 Examples:
-  node scripts/qveris_tool.mjs search "weather forecast API"
-  node scripts/qveris_tool.mjs execute openweathermap.weather.execute.v1 --search-id abc123 --params '{"city": "London"}'
-  node scripts/qveris_tool.mjs get-by-ids openweathermap.weather.execute.v1`);
+  node scripts/qveris_tool.mjs discover "weather forecast API"
+  node scripts/qveris_tool.mjs invoke openweathermap.weather.execute.v1 --discovery-id abc123 --params '{"city": "London"}'
+  node scripts/qveris_tool.mjs inspect openweathermap.weather.execute.v1`);
 }
 
 function parseArgs(argv) {
-  const args = argv.slice(2);
+  const normalized = normalizeLegacyArgs(argv.slice(2));
+  const args = normalized.args;
 
   if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
     printUsage();
     process.exit(0);
   }
 
+  for (const warning of normalized.warnings) {
+    console.error(`Deprecated: ${warning}`);
+  }
+
   const command = args[0];
   const parsed = { command, json: false };
 
-  if (command === "search") {
+  if (command === "discover") {
     if (args.length < 2) {
-      console.error("Error: search command requires a query argument");
+      console.error("Error: discover command requires a query argument");
       process.exit(1);
     }
     parsed.query = args[1];
@@ -260,20 +293,20 @@ function parseArgs(argv) {
         parsed.json = true;
       }
     }
-  } else if (command === "execute") {
+  } else if (command === "invoke") {
     if (args.length < 2) {
-      console.error("Error: execute command requires a tool_id argument");
+      console.error("Error: invoke command requires a tool_id argument");
       process.exit(1);
     }
     parsed.toolId = args[1];
-    parsed.searchId = null;
+    parsed.discoveryId = null;
     parsed.params = "{}";
     parsed.maxSize = 20480;
     parsed.timeout = 60;
 
     for (let i = 2; i < args.length; i++) {
-      if (args[i] === "--search-id" && i + 1 < args.length) {
-        parsed.searchId = args[++i];
+      if (args[i] === "--discovery-id" && i + 1 < args.length) {
+        parsed.discoveryId = args[++i];
       } else if (args[i] === "--params" && i + 1 < args.length) {
         parsed.params = args[++i];
       } else if (args[i] === "--max-size" && i + 1 < args.length) {
@@ -285,22 +318,22 @@ function parseArgs(argv) {
       }
     }
 
-    if (!parsed.searchId) {
-      console.error("Error: --search-id is required for execute command");
+    if (!parsed.discoveryId) {
+      console.error("Error: --discovery-id is required for invoke command");
       process.exit(1);
     }
-  } else if (command === "get-by-ids") {
+  } else if (command === "inspect") {
     if (args.length < 2) {
-      console.error("Error: get-by-ids command requires at least one tool_id argument");
+      console.error("Error: inspect command requires at least one tool_id argument");
       process.exit(1);
     }
     parsed.toolIds = [];
-    parsed.searchId = null;
+    parsed.discoveryId = null;
     parsed.timeout = 30;
 
     for (let i = 1; i < args.length; i++) {
-      if (args[i] === "--search-id" && i + 1 < args.length) {
-        parsed.searchId = args[++i];
+      if (args[i] === "--discovery-id" && i + 1 < args.length) {
+        parsed.discoveryId = args[++i];
       } else if (args[i] === "--timeout" && i + 1 < args.length) {
         parsed.timeout = parseInt(args[++i], 10);
       } else if (args[i] === "--json") {
@@ -311,11 +344,11 @@ function parseArgs(argv) {
     }
 
     if (parsed.toolIds.length === 0) {
-      console.error("Error: get-by-ids command requires at least one tool_id argument");
+      console.error("Error: inspect command requires at least one tool_id argument");
       process.exit(1);
     }
   } else {
-    console.error(`Error: unknown command '${command}'. Use 'search', 'execute', or 'get-by-ids'.`);
+    console.error(`Error: unknown command '${command}'. Use 'discover', 'invoke', or 'inspect'.`);
     process.exit(1);
   }
 
@@ -326,14 +359,14 @@ async function main() {
   const args = parseArgs(process.argv);
 
   try {
-    if (args.command === "search") {
-      const result = await searchTools(args.query, args.limit, args.timeout * 1000);
+    if (args.command === "discover") {
+      const result = await discoverTools(args.query, args.limit, args.timeout * 1000);
       if (args.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        displaySearchResults(result);
+        displayDiscoveryResults(result);
       }
-    } else if (args.command === "execute") {
+    } else if (args.command === "invoke") {
       let params;
       try {
         params = JSON.parse(args.params);
@@ -341,18 +374,18 @@ async function main() {
         console.error(`Invalid JSON in --params: ${e.message}`);
         process.exit(1);
       }
-      const result = await executeTool(args.toolId, args.searchId, params, args.maxSize, args.timeout * 1000);
+      const result = await invokeTool(args.toolId, args.discoveryId, params, args.maxSize, args.timeout * 1000);
       if (args.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        displayExecutionResult(result);
+        displayInvocationResult(result);
       }
-    } else if (args.command === "get-by-ids") {
-      const result = await getToolsByIds(args.toolIds, args.searchId, args.timeout * 1000);
+    } else if (args.command === "inspect") {
+      const result = await inspectToolsByIds(args.toolIds, args.discoveryId, args.timeout * 1000);
       if (args.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        displaySearchResults(result);
+        displayDiscoveryResults(result);
       }
     }
   } catch (e) {
