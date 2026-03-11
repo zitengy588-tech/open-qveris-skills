@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * QVeris Capability Discovery & Tool Invocation CLI
+ * QVeris Capability Discovery & Tool Calling CLI
  *
- * Discover tools by capability and invoke them through QVeris.
+ * Discover tools by capability and call them through QVeris.
  * Uses only Node.js built-in APIs (fetch) — zero external dependencies.
  *
  * SECURITY MANIFEST:
@@ -13,7 +13,7 @@
  *
  * Usage:
  *   node scripts/qveris_tool.mjs discover "weather forecast"
- *   node scripts/qveris_tool.mjs invoke <tool_id> --discovery-id <id> --params '{"city": "London"}'
+ *   node scripts/qveris_tool.mjs call <tool_id> --discovery-id <id> --params '{"city": "London"}'
  *   node scripts/qveris_tool.mjs inspect <tool_id1> [tool_id2 ...]
  */
 
@@ -34,7 +34,8 @@ function normalizeLegacyArgs(rawArgs) {
   const warnings = new Set();
   const commandAliases = {
     search: "discover",
-    execute: "invoke",
+    execute: "call",
+    invoke: "call",
     "get-by-ids": "inspect",
   };
 
@@ -114,7 +115,7 @@ async function inspectToolsByIds(toolIds, discoveryId, timeoutMs = 30000) {
   }
 }
 
-async function invokeTool(toolId, discoveryId, parameters, maxResponseSize = 20480, timeoutMs = 120000) {
+async function callTool(toolId, discoveryId, parameters, maxResponseSize = 20480, timeoutMs = 120000) {
   const apiKey = getApiKey();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -207,7 +208,7 @@ function displayDiscoveryResults(result) {
   }
 }
 
-function displayInvocationResult(result) {
+function displayCallResult(result) {
   const success = result.success ?? false;
   const execTime = result.elapsed_time_ms ?? "N/A";
   const cost = result.cost ?? 0;
@@ -228,34 +229,34 @@ function displayInvocationResult(result) {
 }
 
 function printUsage() {
-  console.log(`QVeris Capability Discovery & Tool Invocation CLI
+  console.log(`QVeris Capability Discovery & Tool Calling CLI
 
 Usage:
   node scripts/qveris_tool.mjs discover <query> [options]
-  node scripts/qveris_tool.mjs invoke <tool_id> --discovery-id <id> [options]
+  node scripts/qveris_tool.mjs call <tool_id> --discovery-id <id> [options]
   node scripts/qveris_tool.mjs inspect <tool_id> [tool_id2 ...] [options]
 
 Commands:
   discover <query>            Discover tool candidates for a capability description
-  invoke <tool_id>            Invoke the selected tool through QVeris
-  inspect <id> [id2 ...]      Inspect tool details before reuse or invocation
+  call <tool_id>              Call the selected tool through QVeris
+  inspect <id> [id2 ...]      Inspect tool details before reuse or calling
 
 Notes:
   discover returns tool candidates and metadata, not final data results
-  invoke returns the execution result
+  call returns the execution result
 
 Options:
   --limit N          Max results for discover (default: 10)
-  --discovery-id ID  Discovery ID from previous discover (required for invoke, optional for inspect)
+  --discovery-id ID  Discovery ID from previous discover (required for call, optional for inspect)
   --params JSON      Tool parameters as JSON string (default: "{}")
   --max-size N       Max response size in bytes (default: 20480)
-  --timeout N        Request timeout in seconds (default: 30 for discover/inspect, 60 for invoke)
+  --timeout N        Request timeout in seconds (default: 30 for discover/inspect, 60 for call)
   --json             Output raw JSON instead of formatted display
   --help             Show this help message
 
 Examples:
   node scripts/qveris_tool.mjs discover "weather forecast API"
-  node scripts/qveris_tool.mjs invoke openweathermap.weather.execute.v1 --discovery-id abc123 --params '{"city": "London"}'
+  node scripts/qveris_tool.mjs call openweathermap.weather.execute.v1 --discovery-id abc123 --params '{"city": "London"}'
   node scripts/qveris_tool.mjs inspect openweathermap.weather.execute.v1`);
 }
 
@@ -293,9 +294,9 @@ function parseArgs(argv) {
         parsed.json = true;
       }
     }
-  } else if (command === "invoke") {
+  } else if (command === "call") {
     if (args.length < 2) {
-      console.error("Error: invoke command requires a tool_id argument");
+      console.error("Error: call command requires a tool_id argument");
       process.exit(1);
     }
     parsed.toolId = args[1];
@@ -319,7 +320,7 @@ function parseArgs(argv) {
     }
 
     if (!parsed.discoveryId) {
-      console.error("Error: --discovery-id is required for invoke command");
+      console.error("Error: --discovery-id is required for call command");
       process.exit(1);
     }
   } else if (command === "inspect") {
@@ -348,7 +349,7 @@ function parseArgs(argv) {
       process.exit(1);
     }
   } else {
-    console.error(`Error: unknown command '${command}'. Use 'discover', 'invoke', or 'inspect'.`);
+    console.error(`Error: unknown command '${command}'. Use 'discover', 'call', or 'inspect'.`);
     process.exit(1);
   }
 
@@ -366,7 +367,7 @@ async function main() {
       } else {
         displayDiscoveryResults(result);
       }
-    } else if (args.command === "invoke") {
+    } else if (args.command === "call") {
       let params;
       try {
         params = JSON.parse(args.params);
@@ -374,11 +375,11 @@ async function main() {
         console.error(`Invalid JSON in --params: ${e.message}`);
         process.exit(1);
       }
-      const result = await invokeTool(args.toolId, args.discoveryId, params, args.maxSize, args.timeout * 1000);
+      const result = await callTool(args.toolId, args.discoveryId, params, args.maxSize, args.timeout * 1000);
       if (args.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        displayInvocationResult(result);
+        displayCallResult(result);
       }
     } else if (args.command === "inspect") {
       const result = await inspectToolsByIds(args.toolIds, args.discoveryId, args.timeout * 1000);
