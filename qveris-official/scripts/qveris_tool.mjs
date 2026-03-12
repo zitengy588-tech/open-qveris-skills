@@ -116,7 +116,19 @@ function displayCallResult(result) {
   }
 
   const data = result.result ?? {};
-  if (Object.keys(data).length > 0) {
+  const fullContentUrl = typeof data.full_content_file_url === "string" ? data.full_content_file_url : null;
+
+  if (fullContentUrl) {
+    console.log("\nLarge result notice:");
+    console.log("  The inline payload may be incomplete.");
+    console.log(`  Full content URL: ${fullContentUrl}`);
+    console.log("  Use a separate approved retrieval path if your environment has one.");
+    const { truncated_content, ...displayData } = data;
+    if (Object.keys(displayData).length > 0) {
+      console.log("\nResult (truncated_content omitted — use the URL above for complete data):");
+      console.log(JSON.stringify(displayData, null, 2));
+    }
+  } else if (Object.keys(data).length > 0) {
     console.log("\nResult:");
     console.log(JSON.stringify(data, null, 2));
   }

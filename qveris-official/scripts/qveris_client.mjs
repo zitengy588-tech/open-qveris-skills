@@ -24,9 +24,7 @@ async function requestJson(path, { method = "POST", query = {}, body, timeoutMs 
 
     if (!response.ok) {
       const text = await response.text();
-      console.error(`HTTP Error: ${response.status}`);
-      console.error(text);
-      process.exit(1);
+      throw new Error(`HTTP ${response.status}: ${text}`);
     }
 
     return await response.json();

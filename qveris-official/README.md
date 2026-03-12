@@ -24,6 +24,14 @@ export QVERIS_API_KEY="your-api-key-here"
 
 ## Install
 
+**Option 1: Via ClawHub (recommended)**
+
+```bash
+npx clawdhub install qveris-official
+```
+
+**Option 2: Manual**
+
 Copy the full `qveris-official/` directory into your OpenClaw skills directory so the helper modules remain next to `qveris_tool.mjs`:
 
 ```bash
