@@ -123,7 +123,7 @@ function displayCallResult(result) {
     console.log("  The inline payload may be incomplete.");
     console.log(`  Full content URL: ${fullContentUrl}`);
     console.log("  Use a separate approved retrieval path if your environment has one.");
-    const { truncated_content, ...displayData } = data;
+    const { truncated_content, full_content_file_url, ...displayData } = data;
     if (Object.keys(displayData).length > 0) {
       console.log("\nResult (truncated_content omitted — use the URL above for complete data):");
       console.log(JSON.stringify(displayData, null, 2));
