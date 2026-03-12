@@ -3,13 +3,13 @@
  * QVeris Capability Discovery & Tool Calling CLI
  *
  * Discover tools by capability and call them through QVeris.
- * Uses only Node.js built-in APIs (fetch) — zero external dependencies.
+ * Uses local modules and built-in Node.js web APIs only.
  *
  * SECURITY MANIFEST:
- *   Environment variables accessed: QVERIS_API_KEY (only)
- *   External endpoints called: https://qveris.ai/api/v1 (only)
- *   Local files read: none
- *   Local files written: none
+ *   Credential used: QVERIS_API_KEY (only)
+ *   External endpoint: https://qveris.ai/api/v1 (only)
+ *   Local file reads: none
+ *   Local file writes: none
  *
  * Usage:
  *   node scripts/qveris_tool.mjs discover "weather forecast"
@@ -17,17 +17,8 @@
  *   node scripts/qveris_tool.mjs inspect <tool_id1> [tool_id2 ...]
  */
 
-const BASE_URL = "https://qveris.ai/api/v1";
-
-function getApiKey() {
-  const key = process.env.QVERIS_API_KEY;
-  if (!key) {
-    console.error("Error: QVERIS_API_KEY environment variable not set");
-    console.error("Get your API key at https://qveris.ai");
-    process.exit(1);
-  }
-  return key;
-}
+import { readQverisApiKey } from "./qveris_env.mjs";
+import { callTool, discoverTools, getBaseUrl, inspectToolsByIds } from "./qveris_client.mjs";
 
 function normalizeLegacyArgs(rawArgs) {
   const args = [...rawArgs];
@@ -52,103 +43,6 @@ function normalizeLegacyArgs(rawArgs) {
   }
 
   return { args, warnings: [...warnings] };
-}
-
-async function discoverTools(query, limit = 10, timeoutMs = 30000) {
-  const apiKey = getApiKey();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(`${BASE_URL}/search`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query, limit }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`HTTP Error: ${response.status}`);
-      console.error(text);
-      process.exit(1);
-    }
-
-    return await response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function inspectToolsByIds(toolIds, discoveryId, timeoutMs = 30000) {
-  const apiKey = getApiKey();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const body = { tool_ids: toolIds };
-    if (discoveryId) body.search_id = discoveryId;
-
-    const response = await fetch(`${BASE_URL}/tools/by-ids`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`HTTP Error: ${response.status}`);
-      console.error(text);
-      process.exit(1);
-    }
-
-    return await response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function callTool(toolId, discoveryId, parameters, maxResponseSize = 20480, timeoutMs = 120000) {
-  const apiKey = getApiKey();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const url = new URL(`${BASE_URL}/tools/execute`);
-    url.searchParams.set("tool_id", toolId);
-
-    const response = await fetch(url.toString(), {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        search_id: discoveryId,
-        parameters,
-        max_response_size: maxResponseSize,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error(`HTTP Error: ${response.status}`);
-      console.error(text);
-      process.exit(1);
-    }
-
-    return await response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 function displayDiscoveryResults(result) {
@@ -229,6 +123,7 @@ function displayCallResult(result) {
 }
 
 function printUsage() {
+  const baseUrl = getBaseUrl();
   console.log(`QVeris Capability Discovery & Tool Calling CLI
 
 Usage:
@@ -244,6 +139,7 @@ Commands:
 Notes:
   discover returns tool candidates and metadata, not final data results
   call returns the execution result
+  all requests are routed to ${baseUrl}
 
 Options:
   --limit N          Max results for discover (default: 10)
@@ -358,10 +254,16 @@ function parseArgs(argv) {
 
 async function main() {
   const args = parseArgs(process.argv);
+  const apiKey = readQverisApiKey();
 
   try {
     if (args.command === "discover") {
-      const result = await discoverTools(args.query, args.limit, args.timeout * 1000);
+      const result = await discoverTools({
+        apiKey,
+        query: args.query,
+        limit: args.limit,
+        timeoutMs: args.timeout * 1000,
+      });
       if (args.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
@@ -375,14 +277,26 @@ async function main() {
         console.error(`Invalid JSON in --params: ${e.message}`);
         process.exit(1);
       }
-      const result = await callTool(args.toolId, args.discoveryId, params, args.maxSize, args.timeout * 1000);
+      const result = await callTool({
+        apiKey,
+        toolId: args.toolId,
+        discoveryId: args.discoveryId,
+        parameters: params,
+        maxResponseSize: args.maxSize,
+        timeoutMs: args.timeout * 1000,
+      });
       if (args.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
         displayCallResult(result);
       }
     } else if (args.command === "inspect") {
-      const result = await inspectToolsByIds(args.toolIds, args.discoveryId, args.timeout * 1000);
+      const result = await inspectToolsByIds({
+        apiKey,
+        toolIds: args.toolIds,
+        discoveryId: args.discoveryId,
+        timeoutMs: args.timeout * 1000,
+      });
       if (args.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {

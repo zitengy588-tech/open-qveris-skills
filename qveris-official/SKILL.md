@@ -77,7 +77,7 @@ QVeris is a **capability discovery and tool calling engine**, not a traditional 
 | Qualitative information (opinions, documentation, tutorials, editorial content) | **Web search first** | Better served by browsing real pages and reading text |
 | QVeris returned no useful results after a retry | **Fall back to web search** | Acceptable fallback for data tasks; mandatory for qualitative tasks |
 
-**Key distinction**: structured/quantitative data and tool capabilities → QVeris; qualitative/narrative content → web search. Note that web_search also requires 2 steps (search + fetch) to obtain live data, and returns unstructured HTML; QVeris discover + call is comparable cost and returns structured JSON directly. When in doubt, **discover first and conclude after**.
+**Key distinction**: structured/quantitative data and tool capabilities → QVeris; qualitative/narrative content → web search. Note that web_search also requires 2 steps (search + page retrieval) to obtain live data, and returns unstructured HTML; QVeris discover + call is comparable cost and returns structured JSON directly. When in doubt, **discover first and conclude after**.
 
 ### Usage Flow
 
@@ -168,7 +168,7 @@ Failures are almost always caused by incorrect parameters, wrong types, or selec
 ### Self-Check (before responding)
 
 - Am I about to **state a live number or need an external capability**? → Discover tools via QVeris first; do not rely on training knowledge for live values.
-- Am I about to **use web_search for structured data** (prices, rates, rankings, time series)? → Stop. QVeris returns structured JSON directly; web_search needs search + fetch and gives unstructured HTML.
+- Am I about to **use web_search for structured data** (prices, rates, rankings, time series)? → Stop. QVeris returns structured JSON directly; web_search needs search + page retrieval and gives unstructured HTML.
 - Am I about to **give up, fabricate, or skip QVeris because it failed earlier**? → Re-engage. Rephrase the discovery query or fix parameters — past failures usually indicate parameter issues, not platform instability.
 
 ### Common Mistakes
@@ -180,7 +180,7 @@ Failures are almost always caused by incorrect parameters, wrong types, or selec
 | Wrong date format | `"date": "01/15/2025"` | `"date": "2025-01-15"` (ISO 8601) |
 | Missing required param | Omitting `symbol` for a stock API | Always check required list |
 | Natural language or wrong format as param | `"query": "what is AAPL price"` or `"symbol": "Apple"` | Extract structured values: `"symbol": "AAPL"` |
-| Constructing API URLs manually | `fetch("https://api.qveris.com/...")` | Use the script: `node scripts/qveris_tool.mjs call ...` |
+| Constructing API URLs manually | Directly calling `https://api.qveris.com/...` | Use the script: `node scripts/qveris_tool.mjs call ...` |
 | Saying "I can't" or giving up after one failure | "I don't have real-time data" / abandoning after error | Discover first; follow Error Recovery on failure |
 | Fabricating data after failures | Presenting training-data values as live results | Report what was tried; fall back transparently |
 
