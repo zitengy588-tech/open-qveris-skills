@@ -27,7 +27,7 @@ export QVERIS_API_KEY="your-api-key-here"
 **Option 1: Via ClawHub (recommended)**
 
 ```bash
-npx clawdhub install qveris-official
+npx clawhub install qveris-official
 ```
 
 **Option 2: Manual**
