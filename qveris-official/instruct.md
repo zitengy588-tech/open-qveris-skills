@@ -6,7 +6,6 @@ Your goal is to install the local `qveris-official` skill for the user without d
 
 ## Preconditions
 
-- Confirm the user wants `qveris-official` installed from this local repository copy.
 - Confirm Node.js 18+ is available.
 - Confirm the user has provided a valid `QVERIS_API_KEY`.
 
@@ -14,26 +13,67 @@ If the key is missing, stop and ask for it before continuing.
 
 ## Install Flow
 
-### 1. Copy the full skill directory
+### 1. Remove existing qveris skills
 
-Copy the entire local `qveris-official/` folder so that all helper modules remain together:
+Before installing, remove any existing skills whose directory name starts with `qveris` under the skills folder.
+
+**Bash (Linux / macOS / WSL):**
 
 ```bash
-mkdir -p ~/.openclaw/skills
-cp -R qveris-official ~/.openclaw/skills/
+rm -rf ~/.openclaw/skills/qveris*
 ```
 
-### 2. Set the key for the current session
+**PowerShell (Windows):**
 
-Use a session-scoped export first. Do not modify `~/.bashrc`, `~/.zshrc`, or other shell startup files unless the user explicitly asks for persistent setup.
+```powershell
+Remove-Item -Recurse -Force "$env:USERPROFILE\.openclaw\skills\qveris*" -ErrorAction SilentlyContinue
+```
+
+### 2. Download the full skill directory
+
+Download the `qveris-official` skill definition and scripts from `https://qveris.ai/skill` so that all helper modules remain together.
+
+**Bash (Linux / macOS / WSL):**
+
+```bash
+mkdir -p ~/.openclaw/skills/qveris-official/scripts
+curl -fSL https://qveris.ai/skill/SKILL.md -o ~/.openclaw/skills/qveris-official/SKILL.md
+curl -fSL https://qveris.ai/skill/scripts/qveris_tool.mjs -o ~/.openclaw/skills/qveris-official/scripts/qveris_tool.mjs
+curl -fSL https://qveris.ai/skill/scripts/qveris_client.mjs -o ~/.openclaw/skills/qveris-official/scripts/qveris_client.mjs
+curl -fSL https://qveris.ai/skill/scripts/qveris_env.mjs -o ~/.openclaw/skills/qveris-official/scripts/qveris_env.mjs
+```
+
+**PowerShell (Windows):**
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.openclaw\skills\qveris-official\scripts"
+Invoke-WebRequest -Uri "https://qveris.ai/skill/SKILL.md" -OutFile "$env:USERPROFILE\.openclaw\skills\qveris-official\SKILL.md"
+Invoke-WebRequest -Uri "https://qveris.ai/skill/scripts/qveris_tool.mjs" -OutFile "$env:USERPROFILE\.openclaw\skills\qveris-official\scripts\qveris_tool.mjs"
+Invoke-WebRequest -Uri "https://qveris.ai/skill/scripts/qveris_client.mjs" -OutFile "$env:USERPROFILE\.openclaw\skills\qveris-official\scripts\qveris_client.mjs"
+Invoke-WebRequest -Uri "https://qveris.ai/skill/scripts/qveris_env.mjs" -OutFile "$env:USERPROFILE\.openclaw\skills\qveris-official\scripts\qveris_env.mjs"
+```
+
+### 3. Set the key for the current session
+
+Use a session-scoped variable first. Do not modify shell startup files (`~/.bashrc`, `~/.zshrc`, or PowerShell `$PROFILE`) unless the user explicitly asks for persistent setup.
+
+**Bash (Linux / macOS / WSL):**
 
 ```bash
 export QVERIS_API_KEY="<USER_PROVIDED_KEY>"
 ```
 
-### 3. Verify the installed files
+**PowerShell (Windows):**
 
-All of these files should exist after the copy:
+```powershell
+$env:QVERIS_API_KEY = "<USER_PROVIDED_KEY>"
+```
+
+### 4. Verify the installed files
+
+All of these files should exist after the download.
+
+**Bash (Linux / macOS / WSL):**
 
 ```bash
 test -f ~/.openclaw/skills/qveris-official/SKILL.md && echo "SKILL.md OK" || echo "SKILL.md MISSING"
@@ -43,13 +83,32 @@ test -f ~/.openclaw/skills/qveris-official/scripts/qveris_env.mjs && echo "qveri
 echo "QVERIS_API_KEY=${QVERIS_API_KEY:+is set}"
 ```
 
-### 4. Verify the runtime entrypoint
+**PowerShell (Windows):**
 
-Run the local CLI help and one discovery command:
+```powershell
+@("SKILL.md", "scripts\qveris_tool.mjs", "scripts\qveris_client.mjs", "scripts\qveris_env.mjs") | ForEach-Object {
+    $file = Split-Path $_ -Leaf
+    if (Test-Path "$env:USERPROFILE\.openclaw\skills\qveris-official\$_") { Write-Host "$file OK" } else { Write-Host "$file MISSING" }
+}
+if ($env:QVERIS_API_KEY) { Write-Host "QVERIS_API_KEY is set" } else { Write-Host "QVERIS_API_KEY is NOT set" }
+```
+
+### 5. Verify the runtime entrypoint
+
+Run the local CLI help and one discovery command.
+
+**Bash (Linux / macOS / WSL):**
 
 ```bash
 node ~/.openclaw/skills/qveris-official/scripts/qveris_tool.mjs --help
 node ~/.openclaw/skills/qveris-official/scripts/qveris_tool.mjs discover "stock price API" --limit 3
+```
+
+**PowerShell (Windows):**
+
+```powershell
+node "$env:USERPROFILE\.openclaw\skills\qveris-official\scripts\qveris_tool.mjs" --help
+node "$env:USERPROFILE\.openclaw\skills\qveris-official\scripts\qveris_tool.mjs" discover "stock price API" --limit 3
 ```
 
 The help output should mention `discover`, `call`, and `inspect`.  
@@ -70,5 +129,11 @@ Only if the user explicitly asks for persistent shell configuration:
 - ask which shell file should be updated
 - explain the exact line that will be added
 - update only after confirmation
+
+For **Bash / Zsh**, the target file is typically `~/.bashrc` or `~/.zshrc`. For **PowerShell**, the target file is `$PROFILE` and the line would be:
+
+```powershell
+$env:QVERIS_API_KEY = "<USER_PROVIDED_KEY>"
+```
 
 Default behavior is non-persistent session setup.
