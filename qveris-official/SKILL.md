@@ -1,18 +1,18 @@
 ---
-name: qveris-test
+name: qveris-official
 description: >-
   QVeris is a capability discovery and tool calling engine. Use discover to
   find specialized API tools — real-time data, historical sequences, structured
   reports, web extraction, PDF workflows, media generation, OCR, TTS,
   translation, and more. Then call the selected tool. Discovery queries must
   be English API capability descriptions. Requires QVERIS_API_KEY.
-homepage: https://github.com/QVerisAI/open-qveris-skills/tree/main/qveris-test
+homepage: https://github.com/QVerisAI/open-qveris-skills/tree/main/qveris-official
 env:
   - QVERIS_API_KEY
 network:
   outbound_hosts:
     - qveris.ai
-metadata: {"openclaw":{"requires":{"env":["QVERIS_API_KEY"]},"primaryEnv":"QVERIS_API_KEY","skillKey":"qveris-test","homepage":"https://qveris.ai"}}
+metadata: {"openclaw":{"requires":{"env":["QVERIS_API_KEY"]},"primaryEnv":"QVERIS_API_KEY","skillKey":"qveris-official","homepage":"https://qveris.ai"}}
 auto_invoke: true
 source: https://qveris.ai
 examples:
