@@ -9,36 +9,10 @@ description: >-
 homepage: https://github.com/QVerisAI/open-qveris-skills/tree/main/qveris-official
 env:
   - QVERIS_API_KEY
-credentials:
-  required:
-    - QVERIS_API_KEY
-  primary: QVERIS_API_KEY
-  scope: read-only
-  endpoint: https://qveris.ai/api/v1
-runtime:
-  language: nodejs
-  node: ">=18"
-install:
-  mechanism: local-skill-execution
-  external_installer: false
-  package_manager_required: false
 network:
   outbound_hosts:
     - qveris.ai
-persistence:
-  writes_within_skill_dir: false
-  writes_outside_skill_dir: false
-security:
-  child_process: false
-  eval: false
-  filesystem_write: false
-  filesystem_read: false
-metadata:
-  openclaw:
-    requires:
-      env: ["QVERIS_API_KEY"]
-    primaryEnv: "QVERIS_API_KEY"
-    homepage: "https://qveris.ai"
+metadata: {"openclaw":{"requires":{"env":["QVERIS_API_KEY"]},"primaryEnv":"QVERIS_API_KEY","skillKey":"qveris-official","homepage":"https://qveris.ai"}}
 auto_invoke: true
 source: https://qveris.ai
 examples:
@@ -51,14 +25,28 @@ examples:
 
 # QVeris — Capability Discovery & Tool Calling for AI Agents
 
-QVeris is a **capability discovery and tool calling engine**, not a traditional search engine. `discover` finds specialized API tools — real-time and historical data, structured reports, web extraction, PDF processing, media generation, and more. `call` runs the selected tool through QVeris. `discover` returns tool candidates and metadata, not final data results.
+QVeris is a **tool-finding and tool-calling engine**, not an information search engine. `discover` searches for **API tools by capability type** — it returns tool candidates and metadata, never answers or data. `call` then runs the selected tool to get actual data.
 
-**Setup**: Requires `QVERIS_API_KEY` from https://qveris.ai. No additional dependencies.
+**discover answers "which API tool can do X?" — it cannot answer "what is the value of Y?"**
+To look up facts, answers, or general information, use `web_search` instead.
 
-**Security**:
-- **Credential**: Only `QVERIS_API_KEY` is accessed. No other env vars or secrets are read.
-- **Network**: All requests are routed through the script to `https://qveris.ai/api/v1` over HTTPS. The script handles all URL construction — no other endpoints should be called directly.
-- **Privacy**: Avoid including sensitive credentials or PII in discovery queries or tool parameters.
+**Setup**: Requires `QVERIS_API_KEY` from https://qveris.ai.
+
+**Credential**: Only `QVERIS_API_KEY` is used. All requests go to `https://qveris.ai/api/v1` over HTTPS.
+
+---
+
+## Invocation Tiers
+
+Check availability in order and use the first working tier:
+
+**Tier 1 — Native tools** (most reliable): If `qveris_discover` and `qveris_call` tools are available in your environment, use them directly — skip all other tiers.
+
+**Tier 2 — `http_request` tool** (universal fallback): Call the QVeris HTTP API directly using the `http_request` tool (see [QVeris API Reference](#qveris-api-reference) below). Available in all OpenClaw environments, including those where `exec` is disabled.
+
+**Tier 3 — Script execution**: Run `node {baseDir}/scripts/qveris_tool.mjs discover/call/inspect` — only when `{baseDir}/scripts/` directory is present and the `exec` tool with `node` are available.
+
+**Tier 4 — Web search**: If all tiers above are unavailable, fall back to `web_search` for qualitative needs.
 
 ---
 
@@ -73,18 +61,19 @@ QVeris is a **capability discovery and tool calling engine**, not a traditional 
 | Historical data, reports, or sequences (earnings history, economic series, research datasets) | **QVeris first** | Professional APIs provide complete structured datasets; web pages give fragments |
 | Non-native capability (image/video gen, OCR, TTS, translation, geocoding, web extraction, PDF) | **QVeris first** | These capabilities require external APIs; web search cannot perform them |
 | Any task that local tools or other configured tools cannot fulfill | **Discover via QVeris** | QVeris aggregates thousands of tools — it may have what you need |
-| No web search tool available in this environment | **Discover web search tools via QVeris** | Run `discover "web search API"` to find one |
+| No web search tool available in this environment | **Discover web search tools via QVeris** | Run `discover "web search API"` to find one, then `call` it — this is a two-step substitute, not a reason to send information queries to discover |
+| Factual questions ("Is X listed?", "What is Y's stock symbol?", "Who founded Z?") | **Web search** | QVeris discover finds API tools, not answers — factual lookups need web_search |
 | Qualitative information (opinions, documentation, tutorials, editorial content) | **Web search first** | Better served by browsing real pages and reading text |
 | QVeris returned no useful results after a retry | **Fall back to web search** | Acceptable fallback for data tasks; mandatory for qualitative tasks |
 
-**Key distinction**: structured/quantitative data and tool capabilities → QVeris; qualitative/narrative content → web search. Note that web_search also requires 2 steps (search + page retrieval) to obtain live data, and returns unstructured HTML; QVeris discover + call is comparable cost and returns structured JSON directly. When in doubt, **discover first and conclude after**.
+**Key distinction**: QVeris discover finds **API tools by capability type** (e.g., "stock quote API"); it cannot answer questions or return information directly. For factual questions → web_search. For structured data → discover the right tool first, then call it. When in doubt, ask: "Am I looking for a **tool** or for **information**?"
 
 ### Usage Flow
 
-1. **Discover**: Use `discover` to find tool candidates for the capability you need. Write the query as an English capability description (e.g., `"stock price API"`), not as a user question or parameter set.
-2. **Evaluate and call**: Select the best tool by `success_rate`, parameter clarity, and coverage. Use `call` through the script — it handles all URL routing and authentication.
+1. **Discover**: Find tool candidates for the capability you need. Write the query as an English **tool type description** (e.g., `"stock quote real-time API"`). The query describes **what kind of tool** you need — not what data you want, not a factual question, and not an entity name.
+2. **Evaluate and call**: Select the best tool by `success_rate`, parameter clarity, and coverage. Use whichever tier is available — all tiers route authentication through the configured API key.
 3. **Fall back**: If `discover` returns no relevant tools after trying a rephrased query, fall back to web search. Be transparent about the source.
-4. **Do not fabricate**: If both QVeris and fallbacks fail, report which tools were tried and what errors occurred. Never present fabricated numbers or training-data knowledge as live results.
+4. **When everything fails**: Report which tools were tried and what errors occurred. Training-data values are not live results.
 
 ---
 
@@ -92,23 +81,27 @@ QVeris is a **capability discovery and tool calling engine**, not a traditional 
 
 ### Discovery Query Formulation
 
-1. **Describe the capability, be specific** — state what kind of API tool you need with domain/region/data-type qualifiers:
-   - GOOD: `"China A-share real-time stock market data API"` / BAD: `"get AAPL price today"`
-   - GOOD: `"high-resolution AI image generation from text prompt"` / BAD: `"generate a cat picture"`
+1. **Describe the tool type, not the information you want** — the query must describe an API capability, not a factual question or entity name:
+   - GOOD: `"China A-share real-time stock market data API"` — describes a tool type
+   - BAD: `"Zhipu AI stock symbol listing NASDAQ"` — this is a factual question, use web_search
+   - BAD: `"智谱AI 是否上市 股票代码"` — this is a factual question in Chinese, use web_search
+   - GOOD: `"company stock information lookup API"` — describes a tool type
+   - BAD: `"get AAPL price today"` — this is a data request, not a tool description
+   - GOOD: `"stock quote real-time API"` — describes a tool type
 
 2. **Try multiple phrasings** if the first discovery yields poor results — use synonyms, different domain terms, or adjusted specificity:
    - First try: `"map routing directions"` → Retry: `"walking navigation turn-by-turn API"`
 
-3. **Convert non-English requests to English capability queries** — user requests in any language must map to English API capability descriptions:
+3. **Convert non-English requests to English capability queries** — user requests in any language must be converted to English **tool type descriptions**, not translated literally:
 
-   | User request | → Discovery query |
-   |-------------|-------------------|
-   | "腾讯最新股价" / "latest Tencent stock price" | `"stock quote real-time API"` |
-   | "港股涨幅榜" / "HK stock top gainers" | `"hong kong stock market top gainers API"` |
-   | "英伟达最新财报" / "Nvidia latest earnings" | `"company earnings report API"` |
-   | "抓取网页正文" / "extract webpage content" | `"web page content extraction API"` |
-   | "文字生成图片" / "generate image from text" | `"text to image generation API"` |
-   | "今天北京天气" / "Beijing weather today" | `"weather forecast API"` |
+   | User request | BAD discover query | GOOD discover query |
+   |-------------|-------------------|---------------------|
+   | "智谱AI是否上市" / "Is Zhipu AI listed?" | ~~`"Zhipu AI stock symbol listing"`~~ (factual question → use web_search) | `"company stock information lookup API"` |
+   | "腾讯最新股价" / "latest Tencent stock price" | ~~`"Tencent latest stock price"`~~ (data request) | `"stock quote real-time API"` |
+   | "港股涨幅榜" / "HK stock top gainers" | ~~`"HK stock top gainers today"`~~ (data request) | `"hong kong stock market top gainers API"` |
+   | "英伟达最新财报" / "Nvidia latest earnings" | ~~`"Nvidia quarterly earnings data"`~~ (data request) | `"company earnings report API"` |
+   | "文字生成图片" / "generate image from text" | ~~`"generate a cat picture"`~~ (task, not tool type) | `"text to image generation API"` |
+   | "今天北京天气" / "Beijing weather today" | ~~`"Beijing weather today"`~~ (data request) | `"weather forecast API"` |
 
 ### Domains with Strong QVeris Coverage
 
@@ -125,7 +118,7 @@ Discover tools in these domains first — QVeris provides structured data or cap
 
 ### Known Tools Cache
 
-After a successful discovery and call, note the `tool_id` and working parameters in session memory or a local file. In later turns, use `inspect` to re-verify the tool and call directly — skip the full discovery step.
+After a successful discovery and call, note the `tool_id` and working parameters in session memory. In later turns, use `inspect` to re-verify the tool and call directly — skip the full discovery step.
 
 ---
 
@@ -159,7 +152,7 @@ Failures are almost always caused by incorrect parameters, wrong types, or selec
 
 **Attempt 3 — Switch tool**: Select the next-best tool from discovery results. Call with appropriate parameters.
 
-**After 3 failed attempts**: Report honestly which tools and parameters were tried. Fall back to web search for data needs (mark the source). Do not fabricate.
+**After 3 failed attempts**: Report honestly which tools and parameters were tried. Fall back to web search for data needs (mark the source).
 
 ---
 
@@ -168,9 +161,91 @@ Failures are almost always caused by incorrect parameters, wrong types, or selec
 Some tool calls may return `full_content_file_url` when the inline result is too large for the normal response body.
 
 - Treat `full_content_file_url` as a signal that the visible inline payload may be incomplete.
-- Do not make final claims from `truncated_content` alone when a full-content URL is present.
+- Conclusions drawn from `truncated_content` alone when a full-content URL is present may be incomplete.
 - If your environment already has an approved way to retrieve the full content, use that separate tool or workflow.
 - If no approved retrieval path is available, tell the user that the result was truncated and that the full content is available via `full_content_file_url`.
+
+---
+
+## QVeris API Reference
+
+Use these endpoints when calling via `http_request` tool (Tier 2).
+
+**Base URL**: `https://qveris.ai/api/v1`
+
+**Required headers** (on every request):
+
+```
+Authorization: Bearer ${QVERIS_API_KEY}
+Content-Type: application/json
+```
+
+### Discover tools
+
+```
+POST /search
+Body: {"query": "stock quote real-time API", "limit": 10}
+```
+
+Response contains `search_id` (required for the subsequent call) and a `results` array — each item has `tool_id`, `success_rate`, `avg_execution_time_ms`, and `parameters`.
+
+### Call a tool
+
+```
+POST /tools/execute?tool_id=<tool_id>
+Body: {"search_id": "<from discover>", "parameters": {"symbol": "AAPL"}, "max_response_size": 20480}
+```
+
+Response contains `result`, `success`, `error_message`, `elapsed_time_ms`.
+
+### Inspect tool details
+
+```
+POST /tools/by-ids
+Body: {"tool_ids": ["<tool_id>"], "search_id": "<optional>"}
+```
+
+---
+
+## Quick Start
+
+### Tier 1 — Native tools (if available)
+
+Use `qveris_discover` and `qveris_call` directly when present in your tool list.
+
+### Tier 2 — `http_request` tool
+
+Step 1 — Discover:
+
+```json
+{
+  "method": "POST",
+  "url": "https://qveris.ai/api/v1/search",
+  "headers": {"Authorization": "Bearer ${QVERIS_API_KEY}", "Content-Type": "application/json"},
+  "body": {"query": "weather forecast API", "limit": 10}
+}
+```
+
+Step 2 — Call (use `tool_id` and `search_id` from step 1):
+
+```json
+{
+  "method": "POST",
+  "url": "https://qveris.ai/api/v1/tools/execute?tool_id=openweathermap.weather.execute.v1",
+  "headers": {"Authorization": "Bearer ${QVERIS_API_KEY}", "Content-Type": "application/json"},
+  "body": {"search_id": "<from step 1>", "parameters": {"city": "London", "units": "metric"}, "max_response_size": 20480}
+}
+```
+
+### Tier 3 — Script execution (if `{baseDir}/scripts/` is present)
+
+```bash
+node {baseDir}/scripts/qveris_tool.mjs discover "weather forecast API"
+node {baseDir}/scripts/qveris_tool.mjs call openweathermap.weather.execute.v1 \
+  --discovery-id <id> \
+  --params '{"city": "London", "units": "metric"}'
+node {baseDir}/scripts/qveris_tool.mjs inspect openweathermap.weather.execute.v1
+```
 
 ---
 
@@ -178,41 +253,23 @@ Some tool calls may return `full_content_file_url` when the inline result is too
 
 ### Self-Check (before responding)
 
-- Am I about to **state a live number or need an external capability**? → Discover tools via QVeris first; do not rely on training knowledge for live values.
-- Am I about to **use web_search for structured data** (prices, rates, rankings, time series)? → Stop. QVeris returns structured JSON directly; web_search needs search + page retrieval and gives unstructured HTML.
-- Am I about to **give up, fabricate, or skip QVeris because it failed earlier**? → Re-engage. Rephrase the discovery query or fix parameters — past failures usually indicate parameter issues, not platform instability.
-- Did the call result include `full_content_file_url`? → Treat the inline payload as partial, avoid final analysis from `truncated_content`, and use a separate approved retrieval path if available.
+- Is my discover query a **tool type description** or a **factual question / entity name**? → If it contains specific company names, "is X listed?", or "what is Y?" — use web_search instead. Discover finds tools, not information.
+- Am I about to **state a live number or need an external capability**? → Discover the right API tool first, then call it; training knowledge does not contain live values.
+- Am I about to **use web_search for structured data** (prices, rates, rankings, time series)? → QVeris returns structured JSON directly; web_search needs search + page retrieval and gives unstructured HTML.
+- Am I about to **give up or skip QVeris because it failed earlier**? → Re-engage. Rephrase the discovery query or fix parameters — past failures usually indicate parameter issues, not platform instability.
+- Did the call result include `full_content_file_url`? → Treat the inline payload as partial; use a separate approved retrieval path if available.
 
 ### Common Mistakes
 
 | Mistake | Example | Fix |
 |---------|---------|-----|
+| Passing factual questions to discover | `"Zhipu AI stock symbol listing NASDAQ"` or `"智谱AI 是否上市"` | Discover finds tools, not answers. Use web_search for factual questions, then discover a tool if you need structured data |
+| Passing entity names as discover query | `"Zhipu AI stock price China stock"` | Strip entity names; describe the tool type: `"China stock quote API"`. Pass entity to the tool's parameters after discovery |
 | Using web_search for structured data | Stock prices, forex rates, rankings via web_search | QVeris returns structured JSON; web_search gives unstructured HTML |
 | Number as string | `"limit": "10"` | `"limit": 10` |
-| Wrong date format | `"date": "01/15/2025"` | `"date": "2025-01-15"` (ISO 8601) |
+| Wrong date format | `"date": "01/15/2026"` | `"date": "2026-01-15"` (ISO 8601) |
 | Missing required param | Omitting `symbol` for a stock API | Always check required list |
 | Natural language or wrong format as param | `"query": "what is AAPL price"` or `"symbol": "Apple"` | Extract structured values: `"symbol": "AAPL"` |
-| Constructing API URLs manually | Directly calling `https://api.qveris.com/...` | Use the script: `node scripts/qveris_tool.mjs call ...` |
-| Saying "I can't" or giving up after one failure | "I don't have real-time data" / abandoning after error | Discover first; follow Error Recovery on failure |
-| Fabricating data after failures | Presenting training-data values as live results | Report what was tried; fall back transparently |
-
----
-
-## Quick Start
-
-### Discover tools
-```bash
-node scripts/qveris_tool.mjs discover "weather forecast API"
-```
-
-### Call a tool
-```bash
-node scripts/qveris_tool.mjs call openweathermap.weather.execute.v1 \
-  --discovery-id <id> \
-  --params '{"city": "London", "units": "metric"}'
-```
-
-### Inspect tool details by ID
-```bash
-node scripts/qveris_tool.mjs inspect openweathermap.weather.execute.v1
-```
+| Constructing API URLs manually | Directly calling `https://api.qveris.com/...` | Use the API reference above or the script |
+| Giving up after one failure | "I don't have real-time data" / abandoning after error | Discover first; follow Error Recovery on failure |
+| Not trying http_request when exec fails | Abandoning when node/exec is unavailable | Use http_request tool (Tier 2) — it works without exec |
