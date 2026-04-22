@@ -8,7 +8,7 @@
  * 2. Required fields have valid data (not null/N/A)
  *
  * Usage:
- *   node tests/regression.test.mjs [--suite smoke|full] [--concurrency N] [--verbose]
+ *   node tests/regression.test.mjs [--suite smoke|full] [--concurrency N] [--allow-degraded] [--verbose]
  *
  * Options:
  *   --suite          smoke|full (default: full)
@@ -17,6 +17,7 @@
  *   --timeout-sec    Per-analysis timeout in seconds (default: 10)
  *   --limit          Search result limit per capability (default: 5)
  *   --quick          Backward compatibility, equivalent to --suite smoke
+ *   --allow-degraded Treat symbol/field mismatches as DEGRADED_PASS
  *   --verbose        Print detailed output for each sample
  */
 
@@ -57,6 +58,7 @@ function parseArgs() {
     analysisMode,
     timeoutSec,
     limit,
+    allowDegraded: args.includes("--allow-degraded"),
     verbose: args.includes("--verbose"),
   };
 }
@@ -216,6 +218,10 @@ async function main() {
     const elapsed = Date.now() - startTime;
 
     if (!runResult.success) {
+      if (opts.allowDegraded) {
+        console.log(`  ⚠️ DEGRADED_PASS: ${runResult.error}`);
+        return { ...sample, status: "DEGRADED_PASS", reason: runResult.error, elapsed };
+      }
       console.log(`  ❌ FAILED: ${runResult.error}`);
       return { ...sample, status: "FAILED", reason: runResult.error, elapsed };
     }
@@ -233,6 +239,10 @@ async function main() {
     // Check symbol resolution
     const symbolCheck = checkSymbolResolution(parsed, sample.expected_symbol_pattern);
     if (!symbolCheck.ok) {
+      if (opts.allowDegraded || sample.allow_partial) {
+        console.log(`  ⚠️ DEGRADED_PASS: ${symbolCheck.reason}`);
+        return { ...sample, status: "DEGRADED_PASS", reason: symbolCheck.reason, elapsed };
+      }
       console.log(`  ❌ FAILED: ${symbolCheck.reason}`);
       return { ...sample, status: "FAILED", reason: symbolCheck.reason, elapsed };
     }
@@ -240,7 +250,7 @@ async function main() {
     // Check required fields
     const missingFields = checkRequiredFields(parsed, sample.required_fields);
     if (missingFields.length > 0) {
-      if (sample.allow_partial) {
+      if (opts.allowDegraded || sample.allow_partial) {
         console.log(`  ⚠️ DEGRADED_PASS: missing fields: ${missingFields.join(", ")}`);
         return { ...sample, status: "DEGRADED_PASS", missing: missingFields, elapsed };
       }

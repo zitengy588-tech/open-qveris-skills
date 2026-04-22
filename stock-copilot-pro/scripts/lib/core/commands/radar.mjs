@@ -247,7 +247,11 @@ async function runSource(source, args, limit) {
     }
     const params = source.defaultParams(limit);
     const raw = await executeTool(selected.tool_id, searchResult?.search_id || null, params, maxSize, timeoutMs);
-    const extracted = await resolveToolPayload(raw, { fetchFullContent: true, timeoutMs });
+    const extracted = await resolveToolPayload(raw, {
+      fetchFullContent: true,
+      timeoutMs,
+      fullContentAllowedHosts: ["qveris.ai"],
+    });
     const content = extracted?.content ?? raw?.result ?? raw?.data ?? raw ?? {};
     const arrays = extractTopicArrays(content);
     const normalized = [];

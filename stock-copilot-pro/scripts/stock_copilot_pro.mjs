@@ -1890,11 +1890,13 @@ async function runSingleAnalysis(symbol, options) {
     },
   );
   evolutionSummary.new_tools_learned = [...new Set(options.newlyLearnedTools || [])];
+  const dataSources = buildDataSourcesSummary(output);
   return {
     symbol: selectedSymbol,
     market: effectiveMarket,
     mode: options.mode,
     data: output,
+    dataSources,
     quality,
     analysis: {
       scorecard,
@@ -1938,6 +1940,29 @@ function sanitizeParsedCapability(parsed, options) {
     delete cleaned.fullContentFileUrl;
   }
   return cleaned;
+}
+
+function providerFromToolId(toolId) {
+  const id = String(toolId || "").trim();
+  if (!id) return "unknown";
+  return id.split(".")[0] || "unknown";
+}
+
+function buildDataSourcesSummary(output) {
+  const rows = Object.entries(output || {})
+    .filter(([, value]) => value?.success && value?.selectedTool?.tool_id)
+    .map(([capability, value]) => ({
+      capability,
+      provider: providerFromToolId(value.selectedTool.tool_id),
+      toolId: value.selectedTool.tool_id,
+      route: value.routeSource || "unknown",
+    }));
+  const dedup = new Map();
+  for (const row of rows) {
+    const key = `${row.capability}#${row.toolId}`;
+    if (!dedup.has(key)) dedup.set(key, row);
+  }
+  return [...dedup.values()];
 }
 
 function buildDefaultParamsForCapability(capability, symbol, mode, tool, market, context = {}) {
